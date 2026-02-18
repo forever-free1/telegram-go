@@ -172,6 +172,11 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	return s.sessionRepo.Delete(ctx, token)
 }
 
+// GetUserByID 根据用户ID获取用户信息
+func (s *AuthService) GetUserByID(ctx context.Context, userID int64) (*model.User, error) {
+	return s.userRepo.FindByID(ctx, userID)
+}
+
 func (s *AuthService) generateToken(userID int64) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,

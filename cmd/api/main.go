@@ -15,6 +15,7 @@ import (
 	"github.com/forever-free1/telegram-go/internal/repository"
 	"github.com/forever-free1/telegram-go/internal/service"
 	"github.com/forever-free1/telegram-go/internal/websocket"
+	"github.com/forever-free1/telegram-go/pkg/snowflake"
 	"go.uber.org/zap"
 )
 
@@ -45,6 +46,12 @@ func main() {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 	defer logger.Sync()
+
+	// Initialize Snowflake
+	_, err = snowflake.NewSnowflake(1)
+	if err != nil {
+		log.Fatalf("Failed to initialize Snowflake: %v", err)
+	}
 
 	// Setup database
 	db, err := database.NewDatabase(&cfg.Database)
@@ -123,8 +130,8 @@ func main() {
 	router.POST("/api/auth/register", authHandler.Register)
 	router.POST("/api/auth/login", authHandler.Login)
 
-	// WebSocket endpoint
-	router.GET("/ws", websocket.ServeWS(wsHub))
+	// WebSocket endpoint (with auth)
+	router.GET("/ws", middleware.AuthMiddleware(authService), websocket.ServeWS(wsHub))
 
 	// Protected routes
 	protected := router.Group("/api")

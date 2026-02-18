@@ -74,51 +74,53 @@ func (s *ContactService) SyncContacts(ctx context.Context, userID int64, contact
 		return nil, err
 	}
 
+	// 过滤掉自己
+	var matchedUsers []*model.User
+	for _, user := range users {
+		if user.ID != userID {
+			matchedUsers = append(matchedUsers, user)
+		}
+	}
+
+	if len(matchedUsers) == 0 {
+		return []*ContactWithUser{}, nil
+	}
+
 	// 建立手机号到用户的映射
 	phoneToUser := make(map[string]*model.User)
-	for _, user := range users {
+	// 收集匹配的用户ID
+	matchedUserIDs := make([]int64, 0, len(matchedUsers))
+	for _, user := range matchedUsers {
 		if user.Phone != "" {
 			phoneToUser[user.Phone] = user
 		}
+		matchedUserIDs = append(matchedUserIDs, user.ID)
 	}
 
-	// 收集已匹配的用户ID
-	matchedUserIDs := make(map[int64]bool)
-	for _, user := range users {
-		matchedUserIDs[user.ID] = true
+	// 批量查询反向联系人关系（谁把我添加为联系人）
+	reverseContacts, err := s.contactRepository.FindReverseContacts(ctx, userID)
+	if err != nil {
+		s.logger.Error("failed to find reverse contacts", zap.Error(err))
+		return nil, err
 	}
 
-	// 创建或更新联系人关系
+	// 收集需要更新的联系人
+	upsertContacts := make([]*model.Contact, 0)
+
+	// 处理每个匹配的联系人
 	for _, input := range contacts {
 		user, exists := phoneToUser[input.Phone]
 		if !exists {
-			// 用户不存在，跳过
 			continue
 		}
 
-		// 跳过自己
-		if user.ID == userID {
-			continue
-		}
-
-		// 检查是否已经是联系人
-		existing, _ := s.contactRepository.FindContact(ctx, userID, user.ID)
 		isMutual := false
-		if existing != nil {
-			isMutual = existing.IsMutual
-		}
+		var reverseContact *model.Contact
 
-		// 如果对方也将我添加为联系人，则互为联系人
-		if _, mutual := s.contactRepository.FindContact(ctx, user.ID, userID); mutual == nil {
-			isMutual = false
-		} else {
+		// 检查对方是否也将我添加为联系人
+		if rc, ok := reverseContacts[user.ID]; ok && rc != nil {
 			isMutual = true
-			// 更新对方的联系人关系为互为联系人
-			s.contactRepository.Upsert(ctx, &model.Contact{
-				UserID:    user.ID,
-				ContactID: userID,
-				IsMutual:  true,
-			})
+			reverseContact = rc
 		}
 
 		contact := &model.Contact{
@@ -129,19 +131,25 @@ func (s *ContactService) SyncContacts(ctx context.Context, userID int64, contact
 			LastName:   input.LastName,
 			IsMutual:   isMutual,
 		}
+		upsertContacts = append(upsertContacts, contact)
 
-		if err := s.contactRepository.Upsert(ctx, contact); err != nil {
-			s.logger.Error("failed to upsert contact", zap.Error(err))
-			continue
+		// 如果是互为联系人，更新对方的联系人关系
+		if isMutual && reverseContact != nil {
+			reverseContact.IsMutual = true
+			upsertContacts = append(upsertContacts, reverseContact)
+		}
+	}
+
+	// 批量创建或更新联系人
+	if len(upsertContacts) > 0 {
+		if err := s.contactRepository.BatchUpsert(ctx, upsertContacts); err != nil {
+			s.logger.Error("failed to batch upsert contacts", zap.Error(err))
 		}
 	}
 
 	// 返回匹配到的用户列表
-	result := make([]*ContactWithUser, 0, len(users))
-	for _, user := range users {
-		if user.ID == userID {
-			continue
-		}
+	result := make([]*ContactWithUser, 0, len(matchedUsers))
+	for _, user := range matchedUsers {
 		result = append(result, &ContactWithUser{
 			Contact: &model.Contact{
 				ContactID: user.ID,

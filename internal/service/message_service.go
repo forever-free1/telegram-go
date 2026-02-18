@@ -164,6 +164,13 @@ func (s *MessageService) sendOfflinePush(ctx context.Context, message *model.Mes
 		return
 	}
 
+	// 大群限制：只对前100名成员发送离线推送
+	// 避免推送风暴
+	const maxPushRecipients = 100
+	if len(members) > maxPushRecipients {
+		members = members[:maxPushRecipients]
+	}
+
 	// 获取发送者信息
 	sender, err := s.userRepo.FindByID(ctx, senderID)
 	if err != nil {
@@ -196,30 +203,33 @@ func (s *MessageService) sendOfflinePush(ctx context.Context, message *model.Mes
 		content = content[:100] + "..."
 	}
 
-	// 为每个离线成员发送推送
+	// 为每个离线成员异步发送推送
 	for _, member := range members {
 		// 跳过发送者自己
 		if member.UserID == senderID {
 			continue
 		}
 
-		// 检查用户是否在线（通过推送服务检查）
-		isOnline := s.pushService.IsUserOnline(member.UserID)
-		if !isOnline {
-			// 用户离线，发送推送
-			data := map[string]string{
-				"chat_id":    string(rune(message.ChatID)),
-				"message_id": string(rune(message.ID)),
-				"sender_id":  string(rune(message.SenderID)),
-			}
+		// 异步检查并发送推送
+		go func(memberUserID int64) {
+			// 检查用户是否在线（通过推送服务检查）
+			isOnline := s.pushService.IsUserOnline(memberUserID)
+			if !isOnline {
+				// 用户离线，发送推送
+				data := map[string]string{
+					"chat_id":    string(rune(message.ChatID)),
+					"message_id": string(rune(message.ID)),
+					"sender_id":  string(rune(message.SenderID)),
+				}
 
-			err := s.pushService.Push(ctx, member.UserID, title, content, data)
-			if err != nil {
-				s.logger.Error("failed to send offline push",
-					zap.Int64("user_id", member.UserID),
-					zap.Error(err))
+				err := s.pushService.Push(ctx, memberUserID, title, content, data)
+				if err != nil {
+					s.logger.Error("failed to send offline push",
+						zap.Int64("user_id", memberUserID),
+						zap.Error(err))
+				}
 			}
-		}
+		}(member.UserID)
 	}
 }
 

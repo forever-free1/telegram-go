@@ -79,10 +79,24 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
-	user, exists := c.Get("user")
+	userVal, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, dto.Error(401, "unauthorized"))
 		return
 	}
+
+	claims, ok := userVal.(*service.UserClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.Error(401, "unauthorized"))
+		return
+	}
+
+	// Get full user data from database
+	user, err := h.authService.GetUserByID(c.Request.Context(), claims.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.Error(500, err.Error()))
+		return
+	}
+
 	c.JSON(http.StatusOK, dto.Success(user))
 }

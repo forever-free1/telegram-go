@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/forever-free1/telegram-go/internal/model"
+	"github.com/forever-free1/telegram-go/internal/service"
 )
 
 var upgrader = websocket.Upgrader{
@@ -196,9 +197,9 @@ func (h *Hub) broadcastToChat(msg *WSMessage) {
 			select {
 			case client.send <- data:
 			default:
-				// 发送失败，关闭连接
-				close(client.send)
-				delete(h.clients, userID)
+				// 发送缓冲区已满，记录警告日志并丢弃消息
+				// 不关闭连接，允许客户端重连或等待
+				log.Printf("Warning: send buffer full for user %d, message dropped", userID)
 			}
 		}
 	}
@@ -226,8 +227,9 @@ func (h *Hub) broadcastToChatExcludeSender(msg *WSMessage, excludeUserID int64) 
 			select {
 			case client.send <- data:
 			default:
-				close(client.send)
-				delete(h.clients, userID)
+				// 发送缓冲区已满，记录警告日志并丢弃消息
+				// 不关闭连接，允许客户端重连或等待
+				log.Printf("Warning: send buffer full for user %d, message dropped", userID)
 			}
 		}
 	}
@@ -312,11 +314,21 @@ func (h *Hub) LeaveChat(userID, chatID int64) {
 // ServeWS WebSocket 处理函数
 func ServeWS(hub *Hub) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.GetInt64("user_id")
-		if userID == 0 {
+		// Get user from context (set by AuthMiddleware)
+		userVal, exists := c.Get("user")
+		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
+
+		// Type assert to *service.UserClaims
+		claims, ok := userVal.(*service.UserClaims)
+		if !ok || claims.UserID == 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		userID := claims.UserID
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -327,7 +339,7 @@ func ServeWS(hub *Hub) gin.HandlerFunc {
 		client := &Client{
 			hub:    hub,
 			conn:   conn,
-			send:   make(chan []byte, 256),
+			send:   make(chan []byte, 1024),
 			userID: userID,
 		}
 

@@ -82,5 +82,32 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// 环境变量覆盖敏感配置
+	// JWT Secret
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		cfg.JWT.Secret = secret
+	} else if cfg.JWT.Secret == "" {
+		// 如果环境变量和配置文件都没有设置，使用默认值（仅用于开发）
+		cfg.JWT.Secret = "dev-secret-key-change-in-production"
+	}
+
+	// Database Password
+	if password := os.Getenv("DB_PASSWORD"); password != "" {
+		cfg.Database.Password = password
+	}
+
+	// Redis Password
+	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
+		cfg.Redis.Password = password
+	}
+
+	// MinIO credentials
+	if accessKey := os.Getenv("MINIO_ACCESS_KEY"); accessKey != "" {
+		cfg.MinIO.AccessKeyID = accessKey
+	}
+	if secretKey := os.Getenv("MINIO_SECRET_KEY"); secretKey != "" {
+		cfg.MinIO.SecretAccessKey = secretKey
+	}
+
 	return &cfg, nil
 }
