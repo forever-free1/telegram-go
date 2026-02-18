@@ -44,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginRequest"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.LoginRequest"
                         }
                     }
                 ],
@@ -52,7 +52,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -77,7 +77,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -103,7 +103,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterRequest"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.RegisterRequest"
                         }
                     }
                 ],
@@ -111,7 +111,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -136,7 +136,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -165,7 +165,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateChatRequest"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.CreateChatRequest"
                         }
                     }
                 ],
@@ -173,7 +173,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -204,7 +204,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.AddChatMemberRequest"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.AddChatMemberRequest"
                         }
                     }
                 ],
@@ -212,7 +212,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -253,7 +253,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -287,7 +287,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -321,7 +321,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -346,7 +346,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -375,7 +375,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.AddContactRequest"
+                            "$ref": "#/definitions/internal_handler.AddContactRequest"
                         }
                     }
                 ],
@@ -383,7 +383,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -414,7 +414,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.SyncContactsRequest"
+                            "$ref": "#/definitions/internal_handler.SyncContactsRequest"
                         }
                     }
                 ],
@@ -422,7 +422,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -456,7 +456,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -502,7 +502,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -531,7 +531,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.SendMessageRequest"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.SendMessageRequest"
                         }
                     }
                 ],
@@ -539,7 +539,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -570,7 +570,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.AckMessageRequest"
+                            "$ref": "#/definitions/internal_handler.AckMessageRequest"
                         }
                     }
                 ],
@@ -578,7 +578,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -612,7 +612,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -646,7 +646,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -671,7 +671,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response"
                         }
                     }
                 }
@@ -679,7 +679,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AddChatMemberRequest": {
+        "github_com_forever-free1_telegram-go_internal_dto.AddChatMemberRequest": {
             "type": "object",
             "required": [
                 "chat_id",
@@ -694,7 +694,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreateChatRequest": {
+        "github_com_forever-free1_telegram-go_internal_dto.CreateChatRequest": {
             "type": "object",
             "required": [
                 "type"
@@ -710,7 +710,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.LoginRequest": {
+        "github_com_forever-free1_telegram-go_internal_dto.LoginRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -725,7 +725,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.RegisterRequest": {
+        "github_com_forever-free1_telegram-go_internal_dto.RegisterRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -752,7 +752,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.Response": {
+        "github_com_forever-free1_telegram-go_internal_dto.Response": {
             "type": "object",
             "properties": {
                 "code": {
@@ -764,7 +764,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.SendMessageRequest": {
+        "github_com_forever-free1_telegram-go_internal_dto.SendMessageRequest": {
             "type": "object",
             "required": [
                 "chat_id",
@@ -799,7 +799,21 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.AckMessageRequest": {
+        "github_com_forever-free1_telegram-go_internal_service.ContactInput": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.AckMessageRequest": {
             "type": "object",
             "required": [
                 "chat_id",
@@ -818,7 +832,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.AddContactRequest": {
+        "internal_handler.AddContactRequest": {
             "type": "object",
             "required": [
                 "contact_id"
@@ -829,7 +843,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.SyncContactsRequest": {
+        "internal_handler.SyncContactsRequest": {
             "type": "object",
             "required": [
                 "contacts"
@@ -838,22 +852,8 @@ const docTemplate = `{
                 "contacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.ContactInput"
+                        "$ref": "#/definitions/github_com_forever-free1_telegram-go_internal_service.ContactInput"
                     }
-                }
-            }
-        },
-        "service.ContactInput": {
-            "type": "object",
-            "properties": {
-                "first_name": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
                 }
             }
         }

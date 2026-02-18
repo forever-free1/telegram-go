@@ -1,6 +1,6 @@
 basePath: /
 definitions:
-  dto.AddChatMemberRequest:
+  github_com_forever-free1_telegram-go_internal_dto.AddChatMemberRequest:
     properties:
       chat_id:
         type: integer
@@ -10,7 +10,7 @@ definitions:
     - chat_id
     - user_id
     type: object
-  dto.CreateChatRequest:
+  github_com_forever-free1_telegram-go_internal_dto.CreateChatRequest:
     properties:
       name:
         type: string
@@ -21,7 +21,7 @@ definitions:
     required:
     - type
     type: object
-  dto.LoginRequest:
+  github_com_forever-free1_telegram-go_internal_dto.LoginRequest:
     properties:
       password:
         type: string
@@ -31,7 +31,7 @@ definitions:
     - password
     - username
     type: object
-  dto.RegisterRequest:
+  github_com_forever-free1_telegram-go_internal_dto.RegisterRequest:
     properties:
       email:
         type: string
@@ -50,7 +50,7 @@ definitions:
     - password
     - username
     type: object
-  dto.Response:
+  github_com_forever-free1_telegram-go_internal_dto.Response:
     properties:
       code:
         type: integer
@@ -58,7 +58,7 @@ definitions:
       message:
         type: string
     type: object
-  dto.SendMessageRequest:
+  github_com_forever-free1_telegram-go_internal_dto.SendMessageRequest:
     properties:
       chat_id:
         type: integer
@@ -82,7 +82,16 @@ definitions:
     - chat_id
     - type
     type: object
-  handler.AckMessageRequest:
+  github_com_forever-free1_telegram-go_internal_service.ContactInput:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+      phone:
+        type: string
+    type: object
+  internal_handler.AckMessageRequest:
     properties:
       chat_id:
         type: integer
@@ -95,30 +104,21 @@ definitions:
     - chat_id
     - message_ids
     type: object
-  handler.AddContactRequest:
+  internal_handler.AddContactRequest:
     properties:
       contact_id:
         type: integer
     required:
     - contact_id
     type: object
-  handler.SyncContactsRequest:
+  internal_handler.SyncContactsRequest:
     properties:
       contacts:
         items:
-          $ref: '#/definitions/service.ContactInput'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_service.ContactInput'
         type: array
     required:
     - contacts
-    type: object
-  service.ContactInput:
-    properties:
-      first_name:
-        type: string
-      last_name:
-        type: string
-      phone:
-        type: string
     type: object
 host: localhost:8080
 info:
@@ -145,14 +145,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.LoginRequest'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       summary: User login
       tags:
       - auth
@@ -165,7 +165,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: User logout
@@ -182,14 +182,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterRequest'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       summary: Register a new user
       tags:
       - auth
@@ -202,7 +202,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get user chats
@@ -218,14 +218,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.CreateChatRequest'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.CreateChatRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Create a chat
@@ -246,7 +246,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get a chat
@@ -267,7 +267,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get chat members
@@ -294,7 +294,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Remove member from chat
@@ -310,14 +310,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.AddChatMemberRequest'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.AddChatMemberRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Add member to chat
@@ -332,7 +332,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get contacts
@@ -348,14 +348,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.AddContactRequest'
+          $ref: '#/definitions/internal_handler.AddContactRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Add contact
@@ -376,7 +376,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Delete contact
@@ -393,14 +393,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.SyncContactsRequest'
+          $ref: '#/definitions/internal_handler.SyncContactsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Sync contacts
@@ -429,7 +429,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get messages
@@ -445,14 +445,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.SendMessageRequest'
+          $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.SendMessageRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Send a message
@@ -473,7 +473,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Delete a message
@@ -490,14 +490,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.AckMessageRequest'
+          $ref: '#/definitions/internal_handler.AckMessageRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Acknowledge messages
@@ -518,7 +518,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Sync messages
@@ -533,7 +533,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/github_com_forever-free1_telegram-go_internal_dto.Response'
       security:
       - BearerAuth: []
       summary: Get current user

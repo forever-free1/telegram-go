@@ -9,6 +9,7 @@ import (
 	"github.com/swaggo/gin-swagger"
 	swaggerFiles "github.com/swaggo/files"
 
+	"github.com/forever-free1/telegram-go/docs"
 	"github.com/forever-free1/telegram-go/internal/config"
 	"github.com/forever-free1/telegram-go/internal/database"
 	"github.com/forever-free1/telegram-go/internal/handler"
@@ -56,6 +57,9 @@ func (h *wsMessageHandler) OnMessageSaved(message *model.Message) {
 }
 
 func main() {
+	// Initialize swagger docs
+	_ = docs.SwaggerInfo
+
 	// Load config
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
