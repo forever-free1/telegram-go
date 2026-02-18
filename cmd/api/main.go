@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -173,7 +172,10 @@ func main() {
 	}
 
 	// Start server
-	addr := fmt.Sprintf(":%s", cfg.Server.Port)
+	addr := cfg.Server.Port
+	if addr[0] != ':' {
+		addr = ":" + addr
+	}
 	logger.Info("Starting server", zap.String("addr", addr))
 	if err := router.Run(addr); err != nil {
 		logger.Fatal("Failed to start server", zap.Error(err))

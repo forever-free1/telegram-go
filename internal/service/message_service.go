@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 
 	"gorm.io/gorm"
@@ -217,9 +218,9 @@ func (s *MessageService) sendOfflinePush(ctx context.Context, message *model.Mes
 			if !isOnline {
 				// 用户离线，发送推送
 				data := map[string]string{
-					"chat_id":    string(rune(message.ChatID)),
-					"message_id": string(rune(message.ID)),
-					"sender_id":  string(rune(message.SenderID)),
+					"chat_id":    strconv.FormatInt(message.ChatID, 10),
+					"message_id": strconv.FormatInt(message.ID, 10),
+					"sender_id":  strconv.FormatInt(message.SenderID, 10),
 				}
 
 				err := s.pushService.Push(ctx, memberUserID, title, content, data)
