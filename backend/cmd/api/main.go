@@ -63,15 +63,25 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, chatRepo, userRepo, logger)
 	chatService := service.NewChatService(chatRepo, userRepo, logger)
 	fileService := service.NewFileService(cfg.Upload.Path, cfg.Upload.BaseURL, logger, service.WithMaxSize(cfg.Upload.MaxSize))
+	notificationService := service.NewNotificationService(logger)
 
 	// Setup WebSocket hub (must be created before handlers)
 	wsHub := websocket.NewHub()
+
+	// 设置 Hub 的在线用户检查回调
+	wsHub.SetOnlineChecker(func(userID int64) bool {
+		return notificationService.IsUserOnline(userID)
+	})
 
 	// Setup handlers
 	authHandler := handler.NewAuthHandler(authService)
 	messageHandler := handler.NewMessageHandler(messageService, wsHub)
 	chatHandler := handler.NewChatHandler(chatService)
 	uploadHandler := handler.NewUploadHandler(fileService)
+	deviceHandler := handler.NewDeviceHandler(notificationService)
+
+	// 设置消息服务使用离线推送
+	messageService.SetPushService(notificationService)
 
 	// 设置消息广播器：MessageService -> Hub
 	// 当 REST API 发送消息时，保存成功后通过 Hub 广播
@@ -123,6 +133,10 @@ func main() {
 
 		// Upload routes
 		protected.POST("/upload", uploadHandler.Upload)
+
+		// Device routes
+		protected.POST("/device/token", deviceHandler.RegisterToken)
+		protected.DELETE("/device/token", deviceHandler.UnregisterToken)
 
 		// Chat routes
 		protected.POST("/chats", chatHandler.CreateChat)

@@ -82,14 +82,17 @@ func (ChatMember) TableName() string {
 }
 
 type UserSession struct {
-	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    int64     `gorm:"index;not null" json:"user_id"`
-	Token     string    `gorm:"uniqueIndex;size:500;not null" json:"token"`
-	DeviceID  string    `gorm:"size:100" json:"device_id"`
-	DeviceName string   `gorm:"size:100" json:"device_name"`
-	ExpiresAt time.Time `json:"expires_at"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID      int64     `gorm:"index;not null" json:"user_id"`
+	Token       string    `gorm:"uniqueIndex;size:500;not null" json:"token"`
+	DeviceID    string    `gorm:"size:100" json:"device_id"`
+	DeviceName  string    `gorm:"size:100" json:"device_name"`
+	FCMToken    string    `gorm:"size:500" json:"fcm_token"` // Firebase Cloud Messaging Token
+	DeviceType  string    `gorm:"size:20" json:"device_type"` // ios, android, web
+	IsActive    bool      `gorm:"default:true" json:"is_active"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 func (UserSession) TableName() string {

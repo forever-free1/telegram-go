@@ -48,6 +48,7 @@ type MessageService struct {
 	logger       *zap.Logger
 	broadcaster  MessageBroadcaster
 	broadcasterMu sync.RWMutex
+	pushService  PushService // 离线推送服务
 }
 
 func NewMessageService(
@@ -62,6 +63,11 @@ func NewMessageService(
 		userRepo:    userRepo,
 		logger:      logger,
 	}
+}
+
+// SetPushService 设置离线推送服务
+func (s *MessageService) SetPushService(pushService PushService) {
+	s.pushService = pushService
 }
 
 // SetBroadcaster 设置消息广播器
@@ -95,7 +101,7 @@ type SendMessageRequest struct {
 
 func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *SendMessageRequest) (*model.Message, error) {
 	// Check if chat exists
-	_, err := s.chatRepo.FindByID(ctx, req.ChatID)
+	chat, err := s.chatRepo.FindByID(ctx, req.ChatID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrChatNotFound
@@ -112,13 +118,9 @@ func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *S
 		return nil, err
 	}
 
-	// Generate SeqID (using snowflake or auto-increment)
-	// Here we use 0 and let database auto-increment
-	// In production, you might want to use a distributed ID generator
-
 	// Create message
 	message := &model.Message{
-		SeqID:     0, // Will be auto-generated
+		SeqID:     0,
 		ChatID:    req.ChatID,
 		SenderID:  senderID,
 		Type:      req.Type,
@@ -135,10 +137,89 @@ func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *S
 		return nil, err
 	}
 
-	// 消息保存成功后，触发广播
+	// 消息保存成功后，触发 WebSocket 广播
 	s.broadcast(message)
 
+	// 发送离线推送（如果是私聊）
+	// 群聊的离线推送逻辑更复杂，这里先实现私聊
+	if chat.Type == 1 { // private chat
+		go s.sendOfflinePush(ctx, message, senderID)
+	}
+
 	return message, nil
+}
+
+// sendOfflinePush 发送离线推送
+// 检查聊天室成员是否在线，不在线则发送推送
+func (s *MessageService) sendOfflinePush(ctx context.Context, message *model.Message, senderID int64) {
+	if s.pushService == nil {
+		return
+	}
+
+	// 获取聊天室成员
+	members, err := s.chatRepo.GetMembers(ctx, message.ChatID)
+	if err != nil {
+		s.logger.Error("failed to get chat members for offline push", zap.Error(err))
+		return
+	}
+
+	// 获取发送者信息
+	sender, err := s.userRepo.FindByID(ctx, senderID)
+	if err != nil {
+		s.logger.Error("failed to get sender for offline push", zap.Error(err))
+		return
+	}
+
+	// 构建推送内容
+	title := sender.Nickname
+	if title == "" {
+		title = sender.Username
+	}
+
+	var content string
+	switch message.Type {
+	case 1: // text
+		content = message.Content
+	case 2: // image
+		content = "[图片]"
+	case 3: // file
+		content = "[文件]"
+	case 4: // voice
+		content = "[语音]"
+	case 5: // location
+		content = "[位置]"
+	}
+
+	// 限制内容长度
+	if len(content) > 100 {
+		content = content[:100] + "..."
+	}
+
+	// 为每个离线成员发送推送
+	for _, member := range members {
+		// 跳过发送者自己
+		if member.UserID == senderID {
+			continue
+		}
+
+		// 检查用户是否在线（通过推送服务检查）
+		isOnline := s.pushService.IsUserOnline(member.UserID)
+		if !isOnline {
+			// 用户离线，发送推送
+			data := map[string]string{
+				"chat_id":    string(rune(message.ChatID)),
+				"message_id": string(rune(message.ID)),
+				"sender_id":  string(rune(message.SenderID)),
+			}
+
+			err := s.pushService.Push(ctx, member.UserID, title, content, data)
+			if err != nil {
+				s.logger.Error("failed to send offline push",
+					zap.Int64("user_id", member.UserID),
+					zap.Error(err))
+			}
+		}
+	}
 }
 
 // SendMessageFromWS 从 WebSocket 发送消息（不重复广播）

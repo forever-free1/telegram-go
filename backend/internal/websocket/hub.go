@@ -25,6 +25,9 @@ var upgrader = websocket.Upgrader{
 // MessageSaveHandler 消息保存处理函数类型
 type MessageSaveHandler func(ctx context.Context, msg *WSMessage) (*model.Message, error)
 
+// OnlineChecker 用户在线检查函数类型
+type OnlineChecker func(userID int64) bool
+
 // Hub WebSocket 消息中心
 type Hub struct {
 	clients         map[int64]*Client
@@ -33,6 +36,7 @@ type Hub struct {
 	broadcast      chan *WSMessage
 	messageHandler MessageEventHandler    // 消息事件处理器，用于保存消息到数据库
 	messageSaver   MessageSaveHandler     // 消息保存回调，用于将 WebSocket 消息保存到数据库
+	onlineChecker  OnlineChecker         // 用户在线检查回调
 	chatMembers    map[int64]map[int64]bool // chatID -> map[userID] -> joined
 	chatMembersMu  sync.RWMutex
 	mu             sync.RWMutex
@@ -95,6 +99,31 @@ func (h *Hub) SetMessageHandler(handler MessageEventHandler) {
 // 用于在 WebSocket 收到消息时保存到数据库
 func (h *Hub) SetMessageSaver(saver MessageSaveHandler) {
 	h.messageSaver = saver
+}
+
+// SetOnlineChecker 设置用户在线检查回调
+// 用于检查用户是否有 WebSocket 连接
+func (h *Hub) SetOnlineChecker(checker OnlineChecker) {
+	h.onlineChecker = checker
+}
+
+// IsUserOnline 检查用户是否有 WebSocket 连接
+func (h *Hub) IsUserOnline(userID int64) bool {
+	// 首先检查本地连接
+	h.mu.RLock()
+	_, hasLocalConn := h.clients[userID]
+	h.mu.RUnlock()
+
+	if hasLocalConn {
+		return true
+	}
+
+	// 如果设置了外部在线检查回调，也检查
+	if h.onlineChecker != nil {
+		return h.onlineChecker(userID)
+	}
+
+	return false
 }
 
 // Run 启动 Hub
