@@ -1,0 +1,548 @@
+basePath: /
+definitions:
+  dto.AddChatMemberRequest:
+    properties:
+      chat_id:
+        type: integer
+      user_id:
+        type: integer
+    required:
+    - chat_id
+    - user_id
+    type: object
+  dto.CreateChatRequest:
+    properties:
+      name:
+        type: string
+      type:
+        maximum: 3
+        minimum: 1
+        type: integer
+    required:
+    - type
+    type: object
+  dto.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      nickname:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      phone:
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  dto.SendMessageRequest:
+    properties:
+      chat_id:
+        type: integer
+      content:
+        type: string
+      duration:
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+      media_url:
+        type: string
+      reply_id:
+        type: integer
+      type:
+        maximum: 5
+        minimum: 1
+        type: integer
+    required:
+    - chat_id
+    - type
+    type: object
+  handler.AckMessageRequest:
+    properties:
+      chat_id:
+        type: integer
+      message_ids:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - chat_id
+    - message_ids
+    type: object
+  handler.AddContactRequest:
+    properties:
+      contact_id:
+        type: integer
+    required:
+    - contact_id
+    type: object
+  handler.SyncContactsRequest:
+    properties:
+      contacts:
+        items:
+          $ref: '#/definitions/service.ContactInput'
+        type: array
+    required:
+    - contacts
+    type: object
+  service.ContactInput:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+      phone:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@telegram-go.com
+    name: API Support
+    url: https://github.com/forever-free1/telegram-go
+  description: API documentation for Telegram-Go instant messaging system
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Telegram-Go API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and get JWT token
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: User login
+      tags:
+      - auth
+  /api/auth/logout:
+    post:
+      description: Logout current user and invalidate token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account
+      parameters:
+      - description: Register request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: Register a new user
+      tags:
+      - auth
+  /api/chats:
+    get:
+      description: Get all chats for current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get user chats
+      tags:
+      - chats
+    post:
+      consumes:
+      - application/json
+      description: Create a new chat (private or group)
+      parameters:
+      - description: Create chat request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a chat
+      tags:
+      - chats
+  /api/chats/{id}:
+    get:
+      description: Get chat details by ID
+      parameters:
+      - description: Chat ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a chat
+      tags:
+      - chats
+  /api/chats/{id}/members:
+    get:
+      description: Get all members of a chat
+      parameters:
+      - description: Chat ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get chat members
+      tags:
+      - chats
+  /api/chats/members:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a user from a chat
+      parameters:
+      - description: Remove member request
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            format: int64
+            type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Remove member from chat
+      tags:
+      - chats
+    post:
+      consumes:
+      - application/json
+      description: Add a user to a chat
+      parameters:
+      - description: Add member request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddChatMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Add member to chat
+      tags:
+      - chats
+  /api/contacts:
+    get:
+      description: Get all contacts for current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get contacts
+      tags:
+      - contacts
+    post:
+      consumes:
+      - application/json
+      description: Add a user as contact
+      parameters:
+      - description: Add contact request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AddContactRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Add contact
+      tags:
+      - contacts
+  /api/contacts/{id}:
+    delete:
+      description: Delete a contact
+      parameters:
+      - description: Contact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete contact
+      tags:
+      - contacts
+  /api/contacts/sync:
+    post:
+      consumes:
+      - application/json
+      description: Sync contacts from phone book
+      parameters:
+      - description: Sync contacts request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SyncContactsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Sync contacts
+      tags:
+      - contacts
+  /api/messages:
+    get:
+      description: Get messages from a chat
+      parameters:
+      - description: Chat ID
+        in: query
+        name: chat_id
+        required: true
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get messages
+      tags:
+      - messages
+    post:
+      consumes:
+      - application/json
+      description: Send a message to a chat
+      parameters:
+      - description: Message request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Send a message
+      tags:
+      - messages
+  /api/messages/{id}:
+    delete:
+      description: Delete a message (soft delete)
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a message
+      tags:
+      - messages
+  /api/messages/ack:
+    post:
+      consumes:
+      - application/json
+      description: Mark messages as read
+      parameters:
+      - description: Ack request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AckMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Acknowledge messages
+      tags:
+      - messages
+  /api/sync:
+    get:
+      description: Get incremental updates since last_seq_id
+      parameters:
+      - description: Last Seq ID
+        in: query
+        name: last_seq_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Sync messages
+      tags:
+      - sync
+  /api/user/me:
+    get:
+      description: Get current authenticated user information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - user
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

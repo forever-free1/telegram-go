@@ -17,6 +17,15 @@ func NewChatHandler(chatService *service.ChatService) *ChatHandler {
 	return &ChatHandler{chatService: chatService}
 }
 
+// @Summary Create a chat
+// @Description Create a new chat (private or group)
+// @Tags chats
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateChatRequest true "Create chat request"
+// @Success 200 {object} dto.Response
+// @Router /api/chats [post]
 func (h *ChatHandler) CreateChat(c *gin.Context) {
 	var req dto.CreateChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,6 +52,14 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(chat))
 }
 
+// @Summary Get a chat
+// @Description Get chat details by ID
+// @Tags chats
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Chat ID"
+// @Success 200 {object} dto.Response
+// @Router /api/chats/{id} [get]
 func (h *ChatHandler) GetChat(c *gin.Context) {
 	var req struct {
 		ChatID int64 `uri:"id" binding:"required"`
@@ -61,6 +78,13 @@ func (h *ChatHandler) GetChat(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(chat))
 }
 
+// @Summary Get user chats
+// @Description Get all chats for current user
+// @Tags chats
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.Response
+// @Router /api/chats [get]
 func (h *ChatHandler) GetUserChats(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -78,6 +102,15 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(chats))
 }
 
+// @Summary Add member to chat
+// @Description Add a user to a chat
+// @Tags chats
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.AddChatMemberRequest true "Add member request"
+// @Success 200 {object} dto.Response
+// @Router /api/chats/members [post]
 func (h *ChatHandler) AddMember(c *gin.Context) {
 	var req dto.AddChatMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -100,6 +133,15 @@ func (h *ChatHandler) AddMember(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(nil))
 }
 
+// @Summary Remove member from chat
+// @Description Remove a user from a chat
+// @Tags chats
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body map[string]int64 true "Remove member request"
+// @Success 200 {object} dto.Response
+// @Router /api/chats/members [delete]
 func (h *ChatHandler) RemoveMember(c *gin.Context) {
 	var req struct {
 		ChatID int64 `json:"chat_id" binding:"required"`
@@ -119,6 +161,14 @@ func (h *ChatHandler) RemoveMember(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(nil))
 }
 
+// @Summary Get chat members
+// @Description Get all members of a chat
+// @Tags chats
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Chat ID"
+// @Success 200 {object} dto.Response
+// @Router /api/chats/{id}/members [get]
 func (h *ChatHandler) GetMembers(c *gin.Context) {
 	var req struct {
 		ChatID int64 `uri:"id" binding:"required"`

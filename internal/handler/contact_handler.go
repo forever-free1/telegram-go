@@ -26,6 +26,15 @@ type SyncContactsRequest struct {
 
 // SyncContacts 同步通讯录
 // POST /api/contacts/sync
+// @Summary Sync contacts
+// @Description Sync contacts from phone book
+// @Tags contacts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SyncContactsRequest true "Sync contacts request"
+// @Success 200 {object} dto.Response
+// @Router /api/contacts/sync [post]
 func (h *ContactHandler) SyncContacts(c *gin.Context) {
 	var req SyncContactsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -52,6 +61,13 @@ func (h *ContactHandler) SyncContacts(c *gin.Context) {
 
 // GetContacts 获取联系人列表
 // GET /api/contacts
+// @Summary Get contacts
+// @Description Get all contacts for current user
+// @Tags contacts
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.Response
+// @Router /api/contacts [get]
 func (h *ContactHandler) GetContacts(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -77,6 +93,15 @@ type AddContactRequest struct {
 
 // AddContact 添加联系人
 // POST /api/contacts
+// @Summary Add contact
+// @Description Add a user as contact
+// @Tags contacts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body AddContactRequest true "Add contact request"
+// @Success 200 {object} dto.Response
+// @Router /api/contacts [post]
 func (h *ContactHandler) AddContact(c *gin.Context) {
 	var req AddContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -113,6 +138,14 @@ func (h *ContactHandler) AddContact(c *gin.Context) {
 
 // DeleteContact 删除联系人
 // DELETE /api/contacts/:id
+// @Summary Delete contact
+// @Description Delete a contact
+// @Tags contacts
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Contact ID"
+// @Success 200 {object} dto.Response
+// @Router /api/contacts/{id} [delete]
 func (h *ContactHandler) DeleteContact(c *gin.Context) {
 	var req struct {
 		ContactID int64 `uri:"id" binding:"required"`

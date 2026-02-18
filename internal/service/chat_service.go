@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -78,9 +79,10 @@ func (s *ChatService) AddMember(ctx context.Context, chatID, userID int64, role 
 	}
 
 	member := &model.ChatMember{
-		ChatID: chatID,
-		UserID: userID,
-		Role:   role,
+		ChatID:   chatID,
+		UserID:   userID,
+		Role:     role,
+		JoinedAt: time.Now(),
 	}
 	return s.chatRepo.AddMember(ctx, member)
 }

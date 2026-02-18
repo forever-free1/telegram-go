@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/swaggo/gin-swagger"
+	swaggerFiles "github.com/swaggo/files"
 
 	"github.com/forever-free1/telegram-go/internal/config"
 	"github.com/forever-free1/telegram-go/internal/database"
@@ -17,6 +19,26 @@ import (
 	"github.com/forever-free1/telegram-go/pkg/snowflake"
 	"go.uber.org/zap"
 )
+
+// @title Telegram-Go API
+// @version 1.0
+// @description API documentation for Telegram-Go instant messaging system
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://github.com/forever-free1/telegram-go
+// @contact.email support@telegram-go.com
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 // wsMessageHandler WebSocket 消息处理器
 // 负责将 WebSocket 接收到的消息保存到数据库
@@ -124,6 +146,9 @@ func main() {
 
 	// 静态文件服务 - 上传的文件
 	router.Static("/static", cfg.Upload.Path)
+
+	// Swagger documentation
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.NewHandler()))
 
 	// Public routes
 	router.POST("/api/auth/register", authHandler.Register)

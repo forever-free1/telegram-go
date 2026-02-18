@@ -17,6 +17,14 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
+// @Summary Register a new user
+// @Description Register a new user account
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.RegisterRequest true "Register request"
+// @Success 200 {object} dto.Response
+// @Router /api/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -45,6 +53,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(resp))
 }
 
+// @Summary User login
+// @Description Authenticate user and get JWT token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.LoginRequest true "Login request"
+// @Success 200 {object} dto.Response
+// @Router /api/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -70,6 +86,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(resp))
 }
 
+// @Summary User logout
+// @Description Logout current user and invalidate token
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.Response
+// @Router /api/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	if token != "" {
@@ -78,6 +101,13 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.Success(nil))
 }
 
+// @Summary Get current user
+// @Description Get current authenticated user information
+// @Tags user
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.Response
+// @Router /api/user/me [get]
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	userVal, exists := c.Get("user")
 	if !exists {
