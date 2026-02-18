@@ -48,6 +48,26 @@ func (r *MessageRepository) Update(ctx context.Context, message *model.Message) 
 	return r.db.WithContext(ctx).Save(message).Error
 }
 
+// FindBySeqIDsGreaterThan 查询SeqID大于指定值且属于指定聊天室的消息
+func (r *MessageRepository) FindBySeqIDsGreaterThan(ctx context.Context, chatIDs []int64, lastSeqID int64) ([]*model.Message, error) {
+	var messages []*model.Message
+	err := r.db.WithContext(ctx).
+		Where("chat_id IN ? AND seq_id > ? AND is_deleted = ?", chatIDs, lastSeqID, false).
+		Order("seq_id ASC").
+		Find(&messages).Error
+	return messages, err
+}
+
+// FindReadStatusUpdates 查询用户未读的消息（用于同步已读状态）
+func (r *MessageRepository) FindUnreadByChatIDs(ctx context.Context, chatIDs []int64, userID int64) ([]*model.Message, error) {
+	var messages []*model.Message
+	err := r.db.WithContext(ctx).
+		Where("chat_id IN ? AND sender_id != ? AND is_read = ?", chatIDs, userID, false).
+		Order("seq_id ASC").
+		Find(&messages).Error
+	return messages, err
+}
+
 // AckMessages 批量标记消息为已读
 // 返回已更新且发送者是其他用户的消息列表
 func (r *MessageRepository) AckMessages(ctx context.Context, userID, chatID int64, messageIDs []int64) ([]*model.Message, error) {

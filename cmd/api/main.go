@@ -160,6 +160,9 @@ func main() {
 		protected.GET("/messages", messageHandler.GetMessages)
 		protected.DELETE("/messages/:id", messageHandler.DeleteMessage)
 		protected.POST("/messages/ack", messageHandler.AckMessage)
+
+		// Sync routes
+		protected.GET("/sync", messageHandler.Sync)
 	}
 
 	// Start server

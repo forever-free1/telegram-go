@@ -184,3 +184,34 @@ func (h *MessageHandler) AckMessage(c *gin.Context) {
 		"acknowledged": len(readMessages),
 	}))
 }
+
+// SyncRequest 同步请求参数
+type SyncRequest struct {
+	LastSeqID int64 `form:"last_seq_id" binding:"required"`
+}
+
+// Sync 增量同步 - 获取lastSeqID之后的所有消息
+// GET /api/sync?last_seq_id=xxx
+func (h *MessageHandler) Sync(c *gin.Context) {
+	var req SyncRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error(400, "last_seq_id is required"))
+		return
+	}
+
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, dto.Error(401, "unauthorized"))
+		return
+	}
+
+	currentUser := user.(*service.UserClaims)
+
+	syncResult, err := h.messageService.Sync(c.Request.Context(), currentUser.UserID, req.LastSeqID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.Error(500, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.Success(syncResult))
+}

@@ -75,3 +75,13 @@ func (r *ChatRepository) GetMembers(ctx context.Context, chatID int64) ([]*model
 		Find(&members).Error
 	return members, err
 }
+
+// GetChatIDsByUserID 获取用户所在的所有聊天室ID
+func (r *ChatRepository) GetChatIDsByUserID(ctx context.Context, userID int64) ([]int64, error) {
+	var chatIDs []int64
+	err := r.db.WithContext(ctx).
+		Model(&model.ChatMember{}).
+		Where("user_id = ?", userID).
+		Pluck("chat_id", &chatIDs).Error
+	return chatIDs, err
+}

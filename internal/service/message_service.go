@@ -9,6 +9,7 @@ import (
 
 	"github.com/forever-free1/telegram-go/internal/model"
 	"github.com/forever-free1/telegram-go/internal/repository"
+	"github.com/forever-free1/telegram-go/pkg/snowflake"
 	"go.uber.org/zap"
 )
 
@@ -120,7 +121,7 @@ func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *S
 
 	// Create message
 	message := &model.Message{
-		SeqID:     0,
+		SeqID:     snowflake.GenerateID(),
 		ChatID:    req.ChatID,
 		SenderID:  senderID,
 		Type:      req.Type,
@@ -242,6 +243,7 @@ func (s *MessageService) SendMessageFromWS(ctx context.Context, senderID int64, 
 	}
 
 	message := &model.Message{
+		SeqID:     snowflake.GenerateID(),
 		ChatID:    req.ChatID,
 		SenderID:  senderID,
 		Type:      req.Type,
@@ -321,4 +323,59 @@ func (s *MessageService) AckMessages(ctx context.Context, userID, chatID int64, 
 	}
 
 	return readMessages, nil
+}
+
+// SyncRequest 增量同步请求
+type SyncRequest struct {
+	LastSeqID int64 `json:"last_seq_id"`
+}
+
+// SyncResponse 增量同步响应
+type SyncResponse struct {
+	Messages   []*model.Message `json:"messages"`
+	ReadAcks   []*model.Message `json:"read_acks"`   // 已读确认的消息
+	SeqID      int64            `json:"seq_id"`      // 当前最新SeqID
+}
+
+// Sync 增量同步 - 获取lastSeqID之后的所有消息
+func (s *MessageService) Sync(ctx context.Context, userID int64, lastSeqID int64) (*SyncResponse, error) {
+	// 获取用户所在的所有聊天室ID
+	chatIDs, err := s.chatRepo.GetChatIDsByUserID(ctx, userID)
+	if err != nil {
+		s.logger.Error("failed to get user chat IDs", zap.Error(err))
+		return nil, err
+	}
+
+	if len(chatIDs) == 0 {
+		return &SyncResponse{
+			Messages: []*model.Message{},
+			ReadAcks: []*model.Message{},
+			SeqID:    lastSeqID,
+		}, nil
+	}
+
+	// 查询SeqID大于lastSeqID的所有消息
+	messages, err := s.messageRepo.FindBySeqIDsGreaterThan(ctx, chatIDs, lastSeqID)
+	if err != nil {
+		s.logger.Error("failed to sync messages", zap.Error(err))
+		return nil, err
+	}
+
+	// 获取当前最新的SeqID
+	currentSeqID := lastSeqID
+	for _, msg := range messages {
+		if msg.SeqID > currentSeqID {
+			currentSeqID = msg.SeqID
+		}
+	}
+
+	// TODO: 如果需要同步已读状态，可以查询用户未读的消息
+	// 这里简化处理，先只返回新消息
+	readAcks := []*model.Message{}
+
+	return &SyncResponse{
+		Messages: messages,
+		ReadAcks: readAcks,
+		SeqID:    currentSeqID,
+	}, nil
 }
