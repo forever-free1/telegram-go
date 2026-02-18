@@ -4,6 +4,11 @@ server:
   read_timeout: 60
   write_timeout: 60
 
+upload:
+  path: "./uploads"
+  base_url: "http://localhost:8080/static"
+  max_size: 104857600  # 100MB in bytes
+
 database:
   host: "localhost"
   port: 3306

@@ -35,6 +35,17 @@ type LoginRequest struct {
 	Password string `json:"password" form:"password" binding:"required"`
 }
 
+// SendMessageRequest 发送消息请求
+// 消息类型 (Type):
+//   - 1: 文本消息 (text)
+//   - 2: 图片消息 (image) - 需要先上传图片，获取 MediaURL
+//   - 3: 文件消息 (file) - 需要先上传文件，获取 MediaURL
+//   - 4: 语音消息 (voice) - 需要先上传音频，获取 MediaURL，可设置 Duration
+//   - 5: 位置消息 (location) - 需要设置 Latitude 和 Longitude
+//
+// 发送媒体消息流程:
+//   1. 调用 POST /api/upload 上传文件，获取 URL
+//   2. 调用 POST /api/messages 发送消息，Type=2/3/4，MediaURL 填写上一步获取的 URL
 type SendMessageRequest struct {
 	ChatID    int64   `json:"chat_id" form:"chat_id" binding:"required"`
 	Type      int     `json:"type" form:"type" binding:"required,min=1,max=5"`

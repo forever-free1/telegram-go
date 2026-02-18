@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
+	Upload   UploadConfig   `yaml:"upload"`
 	Database DatabaseConfig `yaml:"database"`
 	Redis    RedisConfig    `yaml:"redis"`
 	Kafka    KafkaConfig    `yaml:"kafka"`
@@ -21,6 +22,12 @@ type ServerConfig struct {
 	Mode         string `yaml:"mode"`
 	ReadTimeout  int    `yaml:"read_timeout"`
 	WriteTimeout int    `yaml:"write_timeout"`
+}
+
+type UploadConfig struct {
+	Path    string `yaml:"path"`
+	BaseURL string `yaml:"base_url"`
+	MaxSize int64  `yaml:"max_size"`
 }
 
 type DatabaseConfig struct {

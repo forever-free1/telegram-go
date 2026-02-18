@@ -62,11 +62,13 @@ func main() {
 	authService := service.NewAuthService(userRepo, sessionRepo, &cfg.JWT, logger)
 	messageService := service.NewMessageService(messageRepo, chatRepo, userRepo, logger)
 	chatService := service.NewChatService(chatRepo, userRepo, logger)
+	fileService := service.NewFileService(cfg.Upload.Path, cfg.Upload.BaseURL, logger, service.WithMaxSize(cfg.Upload.MaxSize))
 
 	// Setup handlers
 	authHandler := handler.NewAuthHandler(authService)
 	messageHandler := handler.NewMessageHandler(messageService)
 	chatHandler := handler.NewChatHandler(chatService)
+	uploadHandler := handler.NewUploadHandler(fileService)
 
 	// Setup WebSocket hub
 	wsHub := websocket.NewHub()
@@ -101,6 +103,9 @@ func main() {
 	// Setup router
 	router := gin.Default()
 
+	// 静态文件服务 - 上传的文件
+	router.Static("/static", cfg.Upload.Path)
+
 	// Public routes
 	router.POST("/api/auth/register", authHandler.Register)
 	router.POST("/api/auth/login", authHandler.Login)
@@ -115,6 +120,9 @@ func main() {
 		// User routes
 		protected.GET("/user/me", authHandler.GetCurrentUser)
 		protected.POST("/auth/logout", authHandler.Logout)
+
+		// Upload routes
+		protected.POST("/upload", uploadHandler.Upload)
 
 		// Chat routes
 		protected.POST("/chats", chatHandler.CreateChat)
