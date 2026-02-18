@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/swaggo/gin-swagger"
@@ -146,6 +147,11 @@ func main() {
 
 	// 静态文件服务 - 上传的文件
 	router.Static("/static", cfg.Upload.Path)
+
+	// Root path - redirect to swagger
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.NewHandler()))
