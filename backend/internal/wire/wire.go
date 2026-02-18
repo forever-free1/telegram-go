@@ -1,0 +1,63 @@
+//go:build wireinject
+// +build wireinject
+
+package wire
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/google/wire"
+
+	"github.com/telegram-go/backend/internal/config"
+	"github.com/telegram-go/backend/internal/database"
+	"github.com/telegram-go/backend/internal/handler"
+	"github.com/telegram-go/backend/internal/middleware"
+	"github.com/telegram-go/backend/internal/repository"
+	"github.com/telegram-go/backend/internal/service"
+	"github.com/telegram-go/backend/pkg/snowflake"
+	"go.uber.org/zap"
+)
+
+func InitializeApp(cfgPath string) (*App, error) {
+	wire.Build(
+		// Config
+		config.LoadConfig,
+
+		// Database
+		database.NewDatabase,
+
+		// Repositories
+		repository.NewUserRepository,
+		repository.NewMessageRepository,
+		repository.NewChatRepository,
+		repository.NewSessionRepository,
+
+		// Services
+		service.NewAuthService,
+		service.NewMessageService,
+
+		// Handlers
+		handler.NewAuthHandler,
+		handler.NewMessageHandler,
+
+		// Middleware
+		middleware.AuthMiddleware,
+
+		// Utils
+		snowflake.NewSnowflake,
+
+		// Logger
+		zap.NewDevelopment,
+
+		// App
+		NewApp,
+	)
+	return nil, nil
+}
+
+type App struct {
+	AuthHandler    *handler.AuthHandler
+	MessageHandler *handler.MessageHandler
+	AuthMiddleware func() gin.HandlerFunc
+	Config         *config.Config
+	Logger         *zap.Logger
+}
