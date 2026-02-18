@@ -27,6 +27,7 @@ func (User) TableName() string {
 
 type Message struct {
 	ID         int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	SeqID      int64          `gorm:"uniqueIndex;not null" json:"seq_id"` // 全局唯一序列号，用于前端去重
 	ChatID     int64          `gorm:"index;not null" json:"chat_id"`
 	SenderID   int64          `gorm:"index;not null" json:"sender_id"`
 	Type       int            `gorm:"type:tinyint;default:1" json:"type"` // 1: text, 2: image, 3: file, 4: voice, 5: location

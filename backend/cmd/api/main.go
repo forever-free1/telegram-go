@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -10,11 +11,26 @@ import (
 	"github.com/telegram-go/backend/internal/database"
 	"github.com/telegram-go/backend/internal/handler"
 	"github.com/telegram-go/backend/internal/middleware"
+	"github.com/telegram-go/backend/internal/model"
 	"github.com/telegram-go/backend/internal/repository"
 	"github.com/telegram-go/backend/internal/service"
 	"github.com/telegram-go/backend/internal/websocket"
 	"go.uber.org/zap"
 )
+
+// wsMessageHandler WebSocket 消息处理器
+// 负责将 WebSocket 接收到的消息保存到数据库
+type wsMessageHandler struct {
+	messageService *service.MessageService
+	hub           *websocket.Hub
+}
+
+// OnMessageSaved 实现 websocket.MessageEventHandler 接口
+func (h *wsMessageHandler) OnMessageSaved(message *model.Message) {
+	// 这里实际上不会直接调用，因为 WebSocket 消息由 readPump 处理
+	// 但为了实现接口，需要有这个方法
+	// WebSocket 消息会在 readPump 中保存后直接通过 hub.broadcast 发送
+}
 
 func main() {
 	// Load config
@@ -54,6 +70,32 @@ func main() {
 
 	// Setup WebSocket hub
 	wsHub := websocket.NewHub()
+
+	// 设置消息广播器：MessageService -> Hub
+	// 当 REST API 发送消息时，保存成功后通过 Hub 广播
+	messageService.SetBroadcaster(service.MessageBroadcasterFunc(func(msg *model.Message) {
+		wsHub.OnMessageSaved(msg)
+	}))
+
+	// 设置 WebSocket 消息处理器：Hub -> MessageService
+	// 当 WebSocket 收到消息时，保存到数据库
+	wsHub.SetMessageHandler(&wsMessageHandler{
+		messageService: messageService,
+		hub:           wsHub,
+	})
+
+	// 设置消息保存回调
+	// 当 WebSocket 收到聊天消息时，保存到数据库
+	wsHub.SetMessageSaver(func(ctx context.Context, msg *websocket.WSMessage) (*model.Message, error) {
+		req := &service.SendMessageRequest{
+			ChatID:   msg.ChatID,
+			Type:     msg.MsgType,
+			Content:  msg.Content,
+			MediaURL: msg.MediaURL,
+		}
+		return messageService.SendMessageFromWS(ctx, msg.SenderID, req)
+	})
+
 	go wsHub.Run()
 
 	// Setup router

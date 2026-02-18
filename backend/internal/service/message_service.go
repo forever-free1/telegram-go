@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"gorm.io/gorm"
 
@@ -14,18 +15,39 @@ import (
 var (
 	ErrChatNotFound    = errors.New("chat not found")
 	ErrMessageNotFound = errors.New("message not found")
-	ErrNotAuthorized   = errors.New("not authorized to perform this action")
+	ErrNotAuthorized  = errors.New("not authorized to perform this action")
 )
 
 type UserClaims struct {
 	UserID int64
 }
 
+// MessageEventHandler 消息事件处理器接口
+type MessageEventHandler interface {
+	OnMessageSaved(message *model.Message)
+}
+
+// MessageBroadcaster 消息广播器，用于在消息保存后触发广播
+type MessageBroadcaster interface {
+	OnMessageSaved(message *model.Message)
+}
+
+var _ MessageBroadcaster = (*MessageBroadcasterFunc)(nil)
+
+// MessageBroadcasterFunc 函数式回调实现
+type MessageBroadcasterFunc func(message *model.Message)
+
+func (f MessageBroadcasterFunc) OnMessageSaved(message *model.Message) {
+	f(message)
+}
+
 type MessageService struct {
-	messageRepo *repository.MessageRepository
-	chatRepo    *repository.ChatRepository
-	userRepo    *repository.UserRepository
-	logger      *zap.Logger
+	messageRepo  *repository.MessageRepository
+	chatRepo     *repository.ChatRepository
+	userRepo     *repository.UserRepository
+	logger       *zap.Logger
+	broadcaster  MessageBroadcaster
+	broadcasterMu sync.RWMutex
 }
 
 func NewMessageService(
@@ -39,6 +61,24 @@ func NewMessageService(
 		chatRepo:    chatRepo,
 		userRepo:    userRepo,
 		logger:      logger,
+	}
+}
+
+// SetBroadcaster 设置消息广播器
+func (s *MessageService) SetBroadcaster(broadcaster MessageBroadcaster) {
+	s.broadcasterMu.Lock()
+	defer s.broadcasterMu.Unlock()
+	s.broadcaster = broadcaster
+}
+
+// broadcast 广播消息（线程安全）
+func (s *MessageService) broadcast(message *model.Message) {
+	s.broadcasterMu.RLock()
+	broadcaster := s.broadcaster
+	s.broadcasterMu.RUnlock()
+
+	if broadcaster != nil {
+		broadcaster.OnMessageSaved(message)
 	}
 }
 
@@ -72,8 +112,13 @@ func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *S
 		return nil, err
 	}
 
+	// Generate SeqID (using snowflake or auto-increment)
+	// Here we use 0 and let database auto-increment
+	// In production, you might want to use a distributed ID generator
+
 	// Create message
 	message := &model.Message{
+		SeqID:     0, // Will be auto-generated
 		ChatID:    req.ChatID,
 		SenderID:  senderID,
 		Type:      req.Type,
@@ -87,6 +132,48 @@ func (s *MessageService) SendMessage(ctx context.Context, senderID int64, req *S
 
 	if err := s.messageRepo.Create(ctx, message); err != nil {
 		s.logger.Error("failed to create message", zap.Error(err))
+		return nil, err
+	}
+
+	// 消息保存成功后，触发广播
+	s.broadcast(message)
+
+	return message, nil
+}
+
+// SendMessageFromWS 从 WebSocket 发送消息（不重复广播）
+func (s *MessageService) SendMessageFromWS(ctx context.Context, senderID int64, req *SendMessageRequest) (*model.Message, error) {
+	// 验证逻辑与 SendMessage 相同，但不触发广播（因为 WebSocket 会直接发送）
+	_, err := s.chatRepo.FindByID(ctx, req.ChatID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrChatNotFound
+		}
+		return nil, err
+	}
+
+	_, err = s.chatRepo.GetMember(ctx, req.ChatID, senderID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotAuthorized
+		}
+		return nil, err
+	}
+
+	message := &model.Message{
+		ChatID:    req.ChatID,
+		SenderID:  senderID,
+		Type:      req.Type,
+		Content:   req.Content,
+		MediaURL:  req.MediaURL,
+		Duration:  req.Duration,
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+		ReplyID:   req.ReplyID,
+	}
+
+	if err := s.messageRepo.Create(ctx, message); err != nil {
+		s.logger.Error("failed to create message from WS", zap.Error(err))
 		return nil, err
 	}
 
