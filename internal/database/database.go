@@ -34,6 +34,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 		&model.Chat{},
 		&model.ChatMember{},
 		&model.UserSession{},
+		&model.Contact{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}

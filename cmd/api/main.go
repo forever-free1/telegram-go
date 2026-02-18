@@ -57,6 +57,7 @@ func main() {
 	messageRepo := repository.NewMessageRepository(db)
 	chatRepo := repository.NewChatRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
+	contactRepo := repository.NewContactRepository(db)
 
 	// Setup services
 	authService := service.NewAuthService(userRepo, sessionRepo, &cfg.JWT, logger)
@@ -64,6 +65,7 @@ func main() {
 	chatService := service.NewChatService(chatRepo, userRepo, logger)
 	fileService := service.NewFileService(cfg.Upload.Path, cfg.Upload.BaseURL, logger, service.WithMaxSize(cfg.Upload.MaxSize))
 	notificationService := service.NewNotificationService(logger)
+	contactService := service.NewContactService(userRepo, contactRepo, logger)
 
 	// Setup WebSocket hub (must be created before handlers)
 	wsHub := websocket.NewHub()
@@ -79,6 +81,7 @@ func main() {
 	chatHandler := handler.NewChatHandler(chatService)
 	uploadHandler := handler.NewUploadHandler(fileService)
 	deviceHandler := handler.NewDeviceHandler(notificationService)
+	contactHandler := handler.NewContactHandler(contactService)
 
 	// 设置消息服务使用离线推送
 	messageService.SetPushService(notificationService)
@@ -137,6 +140,12 @@ func main() {
 		// Device routes
 		protected.POST("/device/token", deviceHandler.RegisterToken)
 		protected.DELETE("/device/token", deviceHandler.UnregisterToken)
+
+		// Contact routes
+		protected.POST("/contacts/sync", contactHandler.SyncContacts)
+		protected.GET("/contacts", contactHandler.GetContacts)
+		protected.POST("/contacts", contactHandler.AddContact)
+		protected.DELETE("/contacts/:id", contactHandler.DeleteContact)
 
 		// Chat routes
 		protected.POST("/chats", chatHandler.CreateChat)

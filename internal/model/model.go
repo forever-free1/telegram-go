@@ -98,3 +98,20 @@ type UserSession struct {
 func (UserSession) TableName() string {
 	return "user_sessions"
 }
+
+// Contact 联系人/好友
+type Contact struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64     `gorm:"index:idx_user_contact,unique;not null" json:"user_id"`     // 归属人
+	ContactID int64     `gorm:"index:idx_user_contact,unique;not null" json:"contact_id"` // 联系人
+	Phone     string    `gorm:"size:20" json:"phone"`                                    // 手机号
+	FirstName string    `gorm:"size:100" json:"first_name"`                              // 通讯录中的名字
+	LastName  string    `gorm:"size:100" json:"last_name"`                               // 通讯录中的姓氏
+	IsMutual  bool      `gorm:"default:false" json:"is_mutual"`                         // 是否互为联系人
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (Contact) TableName() string {
+	return "contacts"
+}

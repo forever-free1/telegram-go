@@ -69,3 +69,13 @@ func (r *UserRepository) List(ctx context.Context, offset, limit int) ([]*model.
 	err := r.db.WithContext(ctx).Offset(offset).Limit(limit).Find(&users).Error
 	return users, err
 }
+
+// FindByPhones 批量通过手机号查询用户
+func (r *UserRepository) FindByPhones(ctx context.Context, phones []string) ([]*model.User, error) {
+	if len(phones) == 0 {
+		return []*model.User{}, nil
+	}
+	var users []*model.User
+	err := r.db.WithContext(ctx).Where("phone IN ?", phones).Find(&users).Error
+	return users, err
+}
