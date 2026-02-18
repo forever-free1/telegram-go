@@ -219,3 +219,25 @@ func (s *MessageService) DeleteMessage(ctx context.Context, messageID, userID in
 func (s *MessageService) GetMessageByID(ctx context.Context, messageID int64) (*model.Message, error) {
 	return s.messageRepo.FindByID(ctx, messageID)
 }
+
+// AckMessages 批量确认消息已读
+// 返回成功标记为已读的消息列表
+func (s *MessageService) AckMessages(ctx context.Context, userID, chatID int64, messageIDs []int64) ([]*model.Message, error) {
+	// 验证用户是否属于该聊天室
+	_, err := s.chatRepo.GetMember(ctx, chatID, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotAuthorized
+		}
+		return nil, err
+	}
+
+	// 更新消息为已读状态
+	readMessages, err := s.messageRepo.AckMessages(ctx, userID, chatID, messageIDs)
+	if err != nil {
+		s.logger.Error("failed to ack messages", zap.Error(err))
+		return nil, err
+	}
+
+	return readMessages, nil
+}

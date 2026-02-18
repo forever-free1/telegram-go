@@ -48,18 +48,32 @@ type Client struct {
 }
 
 // WSMessage WebSocket 消息结构
+// 消息类型 (Type):
+//   - "message": 普通消息
+//   - "join_chat": 加入聊天室
+//   - "leave_chat": 离开聊天室
+//   - "WS_MSG_READ": 消息已读回执
+//   - "WS_TYPING": 正在输入状态
 type WSMessage struct {
-	Type      string          `json:"type"`
-	SeqID     int64           `json:"seq_id,omitempty"`     // 消息序列号，用于前端去重
-	MessageID int64           `json:"message_id,omitempty"` // 数据库消息ID
-	ChatID    int64           `json:"chat_id,omitempty"`
-	SenderID  int64           `json:"sender_id,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	MediaURL  string          `json:"media_url,omitempty"`
-	MsgType   int             `json:"msg_type,omitempty"` // 消息类型：1:text, 2:image, 3:file, 4:voice, 5:location
-	Timestamp time.Time       `json:"timestamp"`
-	Data      json.RawMessage `json:"data,omitempty"`
+	Type       string          `json:"type"`
+	SeqID      int64           `json:"seq_id,omitempty"`      // 消息序列号，用于前端去重
+	MessageID  int64           `json:"message_id,omitempty"`  // 数据库消息ID
+	ChatID     int64           `json:"chat_id,omitempty"`
+	SenderID   int64           `json:"sender_id,omitempty"`
+	Content    string          `json:"content,omitempty"`
+	MediaURL   string          `json:"media_url,omitempty"`
+	MsgType    int             `json:"msg_type,omitempty"`    // 消息类型：1:text, 2:image, 3:file, 4:voice, 5:location
+	Timestamp  time.Time       `json:"timestamp"`
+	Data       json.RawMessage `json:"data,omitempty"`
+	MessageIDs []int64         `json:"message_ids,omitempty"` // 用于已读确认
 }
+
+// WSMessageType constants
+const (
+	WSMessageType         = "message"
+	WSMsgReadType         = "WS_MSG_READ"
+	WSTypingType          = "WS_TYPING"
+)
 
 // NewHub 创建新的 Hub 实例
 func NewHub() *Hub {
@@ -154,6 +168,35 @@ func (h *Hub) broadcastToChat(msg *WSMessage) {
 			case client.send <- data:
 			default:
 				// 发送失败，关闭连接
+				close(client.send)
+				delete(h.clients, userID)
+			}
+		}
+	}
+}
+
+// broadcastToChatExcludeSender 广播消息给聊天室成员，排除发送者
+func (h *Hub) broadcastToChatExcludeSender(msg *WSMessage, excludeUserID int64) {
+	h.chatMembersMu.RLock()
+	members, ok := h.chatMembers[msg.ChatID]
+	h.chatMembersMu.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	data := h.encodeMessage(msg)
+	for userID := range members {
+		if userID == excludeUserID {
+			continue
+		}
+		if client, exists := h.clients[userID]; exists {
+			select {
+			case client.send <- data:
+			default:
 				close(client.send)
 				delete(h.clients, userID)
 			}
@@ -303,7 +346,7 @@ func (c *Client) readPump() {
 		}
 
 		// 处理聊天消息
-		if wsMsg.Type == "message" {
+		if wsMsg.Type == WSMessageType {
 			// 如果有消息保存回调，先保存到数据库
 			if c.hub.messageSaver != nil {
 				dbMsg, err := c.hub.messageSaver(context.Background(), &wsMsg)
@@ -320,6 +363,23 @@ func (c *Client) readPump() {
 			}
 			// 保存成功后广播消息
 			c.hub.broadcast <- &wsMsg
+			continue
+		}
+
+		// 处理正在输入状态 (WS_TYPING)
+		// 不存数据库，纯透传给聊天室其他成员
+		if wsMsg.Type == WSTypingType {
+			c.hub.broadcastToChatExcludeSender(&wsMsg, c.userID)
+			continue
+		}
+
+		// 处理消息已读回执 (WS_MSG_READ)
+		// 需要通过服务器确认并通知消息发送者
+		if wsMsg.Type == WSMsgReadType {
+			// TODO: 可以在这里调用 Service 更新已读状态
+			// 或者让客户端调用 REST API，然后通过服务器通知
+			// 这里直接广播给聊天室成员
+			c.hub.broadcastToChatExcludeSender(&wsMsg, c.userID)
 			continue
 		}
 

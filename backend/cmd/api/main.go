@@ -64,14 +64,14 @@ func main() {
 	chatService := service.NewChatService(chatRepo, userRepo, logger)
 	fileService := service.NewFileService(cfg.Upload.Path, cfg.Upload.BaseURL, logger, service.WithMaxSize(cfg.Upload.MaxSize))
 
+	// Setup WebSocket hub (must be created before handlers)
+	wsHub := websocket.NewHub()
+
 	// Setup handlers
 	authHandler := handler.NewAuthHandler(authService)
-	messageHandler := handler.NewMessageHandler(messageService)
+	messageHandler := handler.NewMessageHandler(messageService, wsHub)
 	chatHandler := handler.NewChatHandler(chatService)
 	uploadHandler := handler.NewUploadHandler(fileService)
-
-	// Setup WebSocket hub
-	wsHub := websocket.NewHub()
 
 	// 设置消息广播器：MessageService -> Hub
 	// 当 REST API 发送消息时，保存成功后通过 Hub 广播
@@ -136,6 +136,7 @@ func main() {
 		protected.POST("/messages", messageHandler.SendMessage)
 		protected.GET("/messages", messageHandler.GetMessages)
 		protected.DELETE("/messages/:id", messageHandler.DeleteMessage)
+		protected.POST("/messages/ack", messageHandler.AckMessage)
 	}
 
 	// Start server

@@ -38,6 +38,8 @@ type Message struct {
 	Longitude  float64        `json:"longitude"`
 	ReplyID    int64          `gorm:"index" json:"reply_id"`
 	IsDeleted  bool           `gorm:"default:false" json:"is_deleted"`
+	IsRead     bool           `gorm:"default:false" json:"is_read"`     // 消息是否已读
+	ReadAt     *time.Time     `json:"read_at"`                         // 消息已读时间
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
