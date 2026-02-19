@@ -1,0 +1,40 @@
+name: telegram_go
+description: A Flutter Telegram app with Material Design 3.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  dynamic_color: ^1.7.0
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Network
+  dio: ^5.7.0
+
+  # Storage
+  shared_preferences: ^2.3.4
+
+  # Desktop
+  window_manager: ^0.4.3
+
+  # Utils
+  intl: ^0.20.1
+  flutter_markdown: ^0.7.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
