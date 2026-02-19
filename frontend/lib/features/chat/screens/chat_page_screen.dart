@@ -1,55 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get/get.dart';
+import 'package:dio/dio.dart';
 
+import '../../../core/database/database_service.dart';
+import '../../../core/database/models/message_model.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/websocket/websocket_service.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input_bar.dart';
 
-/// Mock message data
-class MessageData {
-  final int id;
-  final String content;
-  final bool isMe;
-  final bool isMarkdown;
-  final String time;
-
-  MessageData({
-    required this.id,
-    required this.content,
-    required this.isMe,
-    this.isMarkdown = false,
-    required this.time,
-  });
-}
-
-final List<MessageData> mockMessages = [
-  MessageData(id: 1, content: 'Hey! How are you doing?', isMe: false, time: '10:30 AM'),
-  MessageData(id: 2, content: 'I\'m good, thanks! Just working on a new Flutter project.', isMe: true, time: '10:31 AM'),
-  MessageData(id: 3, content: 'That sounds cool! What kind of app are you building?', isMe: false, time: '10:32 AM'),
-  MessageData(id: 4, content: 'A Telegram clone with Material Design 3. Check out this code:', isMe: true, time: '10:33 AM'),
-  MessageData(
-    id: 5,
-    content: '''
-```dart
-void main() {
-  print('Hello, World!');
-}
-```
-
-It's pretty slick!''', isMe: true, isMarkdown: true, time: '10:33 AM'),
-  MessageData(id: 6, content: 'Wow, that looks amazing! 😍', isMe: false, time: '10:34 AM'),
-  MessageData(id: 7, content: 'Yeah, I\'m using flutter_animate for smooth animations.', isMe: true, time: '10:35 AM'),
-  MessageData(id: 8, content: 'You should check out Kelivo for UI inspiration. Their design is really clean.', isMe: false, time: '10:36 AM'),
-  MessageData(id: 9, content: 'Already did! The chat bubbles and input bar are inspired by their design.', isMe: true, time: '10:37 AM'),
-  MessageData(id: 10, content: 'Nice! Let me know when it\'s ready to test 👀', isMe: false, time: '10:38 AM'),
-];
-
 /// Chat page screen
 class ChatPageScreen extends StatefulWidget {
+  final int chatId;
   final String chatName;
   final String avatarText;
 
   const ChatPageScreen({
     super.key,
+    required this.chatId,
     required this.chatName,
     required this.avatarText,
   });
@@ -60,22 +30,40 @@ class ChatPageScreen extends StatefulWidget {
 
 class _ChatPageScreenState extends State<ChatPageScreen> {
   final ScrollController _scrollController = ScrollController();
-  late List<MessageData> _messages;
+  final DatabaseService _db = DatabaseService.to;
+  final ApiClient _api = ApiClient.to;
+  final AuthController _auth = Get.find<AuthController>();
+
+  List<MessageModel> _messages = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _messages = List.from(mockMessages);
-    // Scroll to bottom after build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    _loadMessages();
+    _connectWebSocket();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    final messages = await _db.getMessagesByChatId(widget.chatId);
+    setState(() {
+      _messages = messages;
+      _isLoading = false;
+    });
+    _scrollToBottom();
+  }
+
+  void _connectWebSocket() {
+    final ws = WebSocketService.to;
+    if (!ws.isConnected) {
+      ws.connect();
+    }
   }
 
   void _scrollToBottom() {
@@ -88,16 +76,68 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     }
   }
 
-  void _handleSend(String text) {
-    setState(() {
-      _messages.add(MessageData(
-        id: _messages.length + 1,
-        content: text,
-        isMe: true,
-        time: _formatTime(DateTime.now()),
-      ));
-    });
-    _scrollToBottom();
+  Future<void> _handleSend(String text) async {
+    if (text.trim().isEmpty) return;
+
+    // Generate local ID for tracking
+    final localId = '${DateTime.now().millisecondsSinceEpoch}_${widget.chatId}';
+    final currentUserId = _auth.currentUser.value?.userId ?? 0;
+
+    // 1. Create local message with "sending" status
+    final localMessage = MessageModel.createLocal(
+      localId: localId,
+      chatId: widget.chatId,
+      senderId: currentUserId,
+      content: text,
+    );
+
+    // Save to local DB immediately (optimistic UI)
+    await _db.saveMessage(localMessage);
+    await _db.updateChatSessionLastMessage(
+      widget.chatId,
+      text,
+      localMessage.createdAt,
+    );
+
+    // Reload messages to update UI
+    await _loadMessages();
+
+    try {
+      // 2. Call API to send message
+      final response = await _api.post(
+        '/messages',
+        data: {
+          'chat_id': widget.chatId,
+          'type': 1, // text
+          'content': text,
+        },
+      );
+
+      final responseData = response.data;
+      if (responseData is Map<String, dynamic>) {
+        Map<String, dynamic> data;
+        if (responseData.containsKey('data')) {
+          data = responseData['data'] ?? {};
+        } else {
+          data = responseData;
+        }
+
+        // 3. Update local message status to "sent"
+        final serverMessage = MessageModel.fromServerJson(data);
+        await _db.updateMessageStatus(localId, MessageStatus.sent, serverSeqId: serverMessage.seqId);
+      } else {
+        // API returned success but unexpected format
+        await _db.updateMessageStatus(localId, MessageStatus.sent);
+      }
+    } on DioException {
+      // 4. Mark as failed on error
+      await _db.updateMessageStatus(localId, MessageStatus.failed);
+    } catch (_) {
+      await _db.updateMessageStatus(localId, MessageStatus.failed);
+    }
+
+    // Reload to reflect status change
+    await _loadMessages();
   }
 
   String _formatTime(DateTime time) {
@@ -110,6 +150,7 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUserId = _auth.currentUser.value?.userId ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -170,47 +211,11 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
           Expanded(
             child: Container(
               color: colorScheme.surface,
-              child: Stack(
-                children: [
-                  // Background pattern (for future expansion)
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.05,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          // Placeholder for background pattern
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Messages list
-                  ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      return MessageBubble(
-                        content: message.content,
-                        isMe: message.isMe,
-                        isMarkdown: message.isMarkdown,
-                        time: message.time,
-                      )
-                          .animate()
-                          .fadeIn(
-                            duration: const Duration(milliseconds: 200),
-                          )
-                          .slideX(
-                            begin: message.isMe ? 0.1 : -0.1,
-                            end: 0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                          );
-                    },
-                  ),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
+                      ? _buildEmptyState()
+                      : _buildMessagesList(currentUserId),
             ),
           ),
           // Input bar
@@ -237,6 +242,77 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No messages yet',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Send a message to start the conversation',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesList(int currentUserId) {
+    return Stack(
+      children: [
+        // Background pattern
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0.05,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+        // Messages list
+        ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          itemCount: _messages.length,
+          itemBuilder: (context, index) {
+            final message = _messages[index];
+            final isMe = message.senderId == currentUserId;
+
+            return MessageBubble(
+              content: message.content ?? '',
+              isMe: isMe,
+              isMarkdown: false,
+              time: _formatTime(message.createdAt),
+              status: message.status,
+            )
+                .animate()
+                .fadeIn(
+                  duration: const Duration(milliseconds: 200),
+                )
+                .slideX(
+                  begin: isMe ? 0.1 : -0.1,
+                  end: 0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                );
+          },
+        ),
+      ],
     );
   }
 }

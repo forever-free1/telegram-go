@@ -9,6 +9,7 @@ import 'core/layout/main_layout.dart';
 import 'core/network/api_client.dart';
 import 'core/database/database_service.dart';
 import 'core/sync/sync_controller.dart';
+import 'core/websocket/websocket_service.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'features/auth/screens/login_page.dart';
 import 'features/chat/screens/chat_list_screen.dart';
@@ -54,8 +55,11 @@ Future<void> initServices() async {
   // Initialize API Client
   await Get.putAsync(() => ApiClient().init());
 
-  // Initialize Database (Isar)
+  // Initialize Database
   await Get.putAsync(() => DatabaseService().init());
+
+  // Initialize WebSocket Service
+  await Get.putAsync(() => WebSocketService().init());
 
   // Initialize Sync Controller
   Get.put(SyncController());

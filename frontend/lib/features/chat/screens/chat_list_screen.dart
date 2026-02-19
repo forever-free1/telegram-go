@@ -123,6 +123,7 @@ class ChatListScreen extends StatelessWidget {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => ChatPageScreen(
+                                chatId: chat.chatId,
                                 chatName: chat.name,
                                 avatarText: chat.avatarText ?? _getInitials(chat.name),
                               ),

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../../../core/database/models/message_model.dart';
+
 /// Message bubble widget - Kelivo style
 class MessageBubble extends StatelessWidget {
   final String content;
   final bool isMe;
   final bool isMarkdown;
   final String time;
+  final MessageStatus? status;
 
   const MessageBubble({
     super.key,
@@ -14,6 +17,7 @@ class MessageBubble extends StatelessWidget {
     required this.isMe,
     this.isMarkdown = false,
     required this.time,
+    this.status,
   });
 
   @override
@@ -80,20 +84,55 @@ class MessageBubble extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 2),
-            // Time
+            // Time and status
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                time,
-                style: TextStyle(
-                  color: colorScheme.outline,
-                  fontSize: 11,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: TextStyle(
+                      color: colorScheme.outline,
+                      fontSize: 11,
+                    ),
+                  ),
+                  if (isMe && status != null) ...[
+                    const SizedBox(width: 4),
+                    _buildStatusIcon(status!, colorScheme),
+                  ],
+                ],
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIcon(MessageStatus status, ColorScheme colorScheme) {
+    switch (status) {
+      case MessageStatus.sending:
+        return SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: colorScheme.outline,
+          ),
+        );
+      case MessageStatus.sent:
+        return Icon(
+          Icons.check,
+          size: 12,
+          color: colorScheme.outline,
+        );
+      case MessageStatus.failed:
+        return Icon(
+          Icons.error_outline,
+          size: 12,
+          color: colorScheme.error,
+        );
+    }
   }
 }

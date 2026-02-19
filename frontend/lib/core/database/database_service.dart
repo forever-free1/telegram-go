@@ -48,8 +48,15 @@ class DatabaseService extends GetxService {
     final allMessages = await _getAllMessages();
 
     for (final msg in messages) {
-      // Check if message already exists
-      final existingIndex = allMessages.indexWhere((m) => m.seqId == msg.seqId);
+      // Check if message already exists by localId or seqId
+      int existingIndex = -1;
+      if (msg.localId != null) {
+        existingIndex = allMessages.indexWhere((m) => m.localId == msg.localId);
+      }
+      if (existingIndex < 0 && msg.seqId > 0) {
+        existingIndex = allMessages.indexWhere((m) => m.seqId == msg.seqId);
+      }
+
       if (existingIndex >= 0) {
         allMessages[existingIndex] = msg;
       } else {
@@ -57,13 +64,34 @@ class DatabaseService extends GetxService {
       }
 
       // Update max seq ID
-      final currentMax = await getMaxSeqId();
-      if (msg.seqId > currentMax) {
-        await _prefs.setInt(_maxSeqIdKey, msg.seqId);
+      if (msg.seqId > 0) {
+        final currentMax = await getMaxSeqId();
+        if (msg.seqId > currentMax) {
+          await _prefs.setInt(_maxSeqIdKey, msg.seqId);
+        }
       }
     }
 
     await _saveAllMessages(allMessages);
+  }
+
+  /// Save a single message
+  Future<void> saveMessage(MessageModel message) async {
+    await saveMessages([message]);
+  }
+
+  /// Update message status by localId
+  Future<void> updateMessageStatus(String localId, MessageStatus status, {int? serverSeqId}) async {
+    final allMessages = await _getAllMessages();
+    final index = allMessages.indexWhere((m) => m.localId == localId);
+
+    if (index >= 0) {
+      allMessages[index].status = status;
+      if (serverSeqId != null) {
+        allMessages[index].seqId = serverSeqId;
+      }
+      await _saveAllMessages(allMessages);
+    }
   }
 
   // Chat session operations

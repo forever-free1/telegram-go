@@ -21,6 +21,7 @@ dependencies:
 
   # Network
   dio: ^5.7.0
+  web_socket_channel: ^3.0.2
 
   # Storage
   shared_preferences: ^2.3.4

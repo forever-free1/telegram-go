@@ -6,6 +6,7 @@ import '../database/database_service.dart';
 import '../database/models/message_model.dart';
 import '../database/models/chat_session_model.dart';
 import '../network/api_client.dart';
+import '../websocket/websocket_service.dart';
 
 /// Sync controller - Incremental sync engine
 class SyncController extends GetxController {
@@ -23,12 +24,22 @@ class SyncController extends GetxController {
     super.onInit();
     // Start periodic sync when app is active
     _startPeriodicSync();
+    // Connect WebSocket
+    _connectWebSocket();
   }
 
   @override
   void onClose() {
     _periodicSyncTimer?.cancel();
     super.onClose();
+  }
+
+  /// Connect to WebSocket
+  void _connectWebSocket() {
+    final ws = WebSocketService.to;
+    if (!ws.isConnected) {
+      ws.connect();
+    }
   }
 
   /// Start periodic sync every 30 seconds
