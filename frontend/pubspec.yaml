@@ -24,6 +24,7 @@ dependencies:
 
   # Storage
   shared_preferences: ^2.3.4
+  path_provider: ^2.1.5
 
   # Desktop
   window_manager: ^0.4.3

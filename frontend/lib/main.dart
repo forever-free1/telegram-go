@@ -7,6 +7,8 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'core/theme/theme_service.dart';
 import 'core/layout/main_layout.dart';
 import 'core/network/api_client.dart';
+import 'core/database/database_service.dart';
+import 'core/sync/sync_controller.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'features/auth/screens/login_page.dart';
 import 'features/chat/screens/chat_list_screen.dart';
@@ -51,6 +53,12 @@ void main() async {
 Future<void> initServices() async {
   // Initialize API Client
   await Get.putAsync(() => ApiClient().init());
+
+  // Initialize Database (Isar)
+  await Get.putAsync(() => DatabaseService().init());
+
+  // Initialize Sync Controller
+  Get.put(SyncController());
 
   // Initialize Auth Controller
   Get.put(AuthController());
