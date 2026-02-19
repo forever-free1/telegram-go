@@ -17,6 +17,7 @@ class DatabaseService extends GetxService {
   late SharedPreferences _prefs;
   final _messagesController = StreamController<List<MessageModel>>.broadcast();
   final _chatSessionsController = StreamController<List<ChatSessionModel>>.broadcast();
+  final _chatMessagesControllers = <int, StreamController<List<MessageModel>>>{};
 
   Stream<List<MessageModel>> get messagesStream => _messagesController.stream;
   Stream<List<ChatSessionModel>> get chatSessionsStream => _chatSessionsController.stream;
@@ -73,6 +74,12 @@ class DatabaseService extends GetxService {
     }
 
     await _saveAllMessages(allMessages);
+
+    // Notify chat message listeners
+    final chatIds = messages.map((m) => m.chatId).toSet();
+    for (final chatId in chatIds) {
+      _notifyChatMessagesChanged(chatId);
+    }
   }
 
   /// Save a single message
@@ -91,7 +98,27 @@ class DatabaseService extends GetxService {
         allMessages[index].seqId = serverSeqId;
       }
       await _saveAllMessages(allMessages);
+
+      // Notify specific chat listeners
+      final chatId = allMessages[index].chatId;
+      _notifyChatMessagesChanged(chatId);
     }
+  }
+
+  /// Watch messages for a specific chat
+  Stream<List<MessageModel>> watchMessagesByChatId(int chatId) {
+    // Create controller if not exists
+    _chatMessagesControllers[chatId] ??= StreamController<List<MessageModel>>.broadcast();
+
+    // Emit current data immediately
+    _notifyChatMessagesChanged(chatId);
+
+    return _chatMessagesControllers[chatId]!.stream;
+  }
+
+  void _notifyChatMessagesChanged(int chatId) async {
+    final messages = await getMessagesByChatId(chatId);
+    _chatMessagesControllers[chatId]?.add(messages);
   }
 
   // Chat session operations

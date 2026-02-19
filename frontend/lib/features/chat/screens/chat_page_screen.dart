@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
@@ -11,7 +12,7 @@ import '../../auth/controllers/auth_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input_bar.dart';
 
-/// Chat page screen
+/// Chat page screen - real-time messaging
 class ChatPageScreen extends StatefulWidget {
   final int chatId;
   final String chatName;
@@ -34,6 +35,7 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
   final ApiClient _api = ApiClient.to;
   final AuthController _auth = Get.find<AuthController>();
 
+  StreamSubscription? _messagesSubscription;
   List<MessageModel> _messages = [];
   bool _isLoading = true;
 
@@ -41,11 +43,13 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
   void initState() {
     super.initState();
     _loadMessages();
+    _listenMessages();
     _connectWebSocket();
   }
 
   @override
   void dispose() {
+    _messagesSubscription?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -56,7 +60,23 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
       _messages = messages;
       _isLoading = false;
     });
-    _scrollToBottom();
+    if (messages.isNotEmpty) {
+      _scrollToBottom();
+    }
+  }
+
+  void _listenMessages() {
+    _messagesSubscription = _db.watchMessagesByChatId(widget.chatId).listen((messages) {
+      if (mounted) {
+        setState(() {
+          _messages = messages;
+        });
+        // Auto scroll to bottom when new messages arrive
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      }
+    });
   }
 
   void _connectWebSocket() {
@@ -99,9 +119,6 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
       localMessage.createdAt,
     );
 
-    // Reload messages to update UI
-    await _loadMessages();
-
     try {
       // 2. Call API to send message
       final response = await _api.post(
@@ -135,9 +152,6 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     } catch (_) {
       await _db.updateMessageStatus(localId, MessageStatus.failed);
     }
-
-    // Reload to reflect status change
-    await _loadMessages();
   }
 
   String _formatTime(DateTime time) {
