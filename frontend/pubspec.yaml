@@ -17,6 +17,7 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^2.6.1
+  get: ^4.6.6
 
   # Network
   dio: ^5.7.0
