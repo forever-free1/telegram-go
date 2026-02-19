@@ -8,18 +8,30 @@ import '../../../core/sync/sync_controller.dart';
 import '../widgets/chat_tile.dart';
 import 'chat_page_screen.dart';
 
-/// Chat list screen with Material 3 large title
-class ChatListScreen extends StatelessWidget {
+/// Chat list screen - loads real data from local database
+class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
   @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  late final DatabaseService _db;
+  late final SyncController _syncController;
+
+  @override
+  void initState() {
+    super.initState();
+    _db = DatabaseService.to;
+    _syncController = Get.find<SyncController>();
+
+    // Trigger initial sync when page loads
+    _syncController.syncMessages();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final db = DatabaseService.to;
-    final syncController = Get.find<SyncController>();
-
-    // Trigger initial sync if needed
-    syncController.syncMessages();
-
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -29,7 +41,7 @@ class ChatListScreen extends StatelessWidget {
             actions: [
               // Sync indicator
               Obx(() {
-                if (syncController.isSyncing.value) {
+                if (_syncController.isSyncing.value) {
                   return const Padding(
                     padding: EdgeInsets.all(12.0),
                     child: SizedBox(
@@ -41,7 +53,7 @@ class ChatListScreen extends StatelessWidget {
                 }
                 return IconButton(
                   icon: const Icon(Icons.sync),
-                  onPressed: () => syncController.syncMessages(),
+                  onPressed: () => _syncController.syncMessages(),
                 );
               }),
               IconButton(
@@ -58,9 +70,9 @@ class ChatListScreen extends StatelessWidget {
               ),
             ],
           ),
-          // Chat list from Isar database
+          // Chat list from local database (SharedPreferences)
           StreamBuilder<List<ChatSessionModel>>(
-            stream: db.watchChatSessions(),
+            stream: _db.watchChatSessions(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
@@ -73,7 +85,7 @@ class ChatListScreen extends StatelessWidget {
               final chats = snapshot.data ?? [];
 
               if (chats.isEmpty) {
-                // Show empty state with hint to sync
+                // Empty state
                 return SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -97,7 +109,7 @@ class ChatListScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
-                          onPressed: () => syncController.syncMessages(),
+                          onPressed: () => _syncController.syncMessages(),
                           icon: const Icon(Icons.sync),
                           label: const Text('Sync Now'),
                         ),
