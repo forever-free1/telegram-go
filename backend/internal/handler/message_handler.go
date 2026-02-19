@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -238,16 +237,9 @@ type SyncRequest struct {
 // @Success 200 {object} dto.Response
 // @Router /api/sync [get]
 func (h *MessageHandler) Sync(c *gin.Context) {
-	lastSeqIDStr := c.Query("last_seq_id")
-	if lastSeqIDStr == "" {
-		c.JSON(http.StatusBadRequest, dto.Error(400, "last_seq_id is required"))
-		return
-	}
-
-	var lastSeqID int64
-	lastSeqID, err := strconv.ParseInt(lastSeqIDStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.Error(400, "invalid last_seq_id format"))
+	var req service.SyncRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error(400, "invalid or missing last_seq_id"))
 		return
 	}
 
@@ -259,7 +251,8 @@ func (h *MessageHandler) Sync(c *gin.Context) {
 
 	currentUser := user.(*service.UserClaims)
 
-	syncResult, err := h.messageService.Sync(c.Request.Context(), currentUser.UserID, lastSeqID)
+	// 使用结构体绑定出的 req.LastSeqID
+	syncResult, err := h.messageService.Sync(c.Request.Context(), currentUser.UserID, req.LastSeqID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.Error(500, err.Error()))
 		return

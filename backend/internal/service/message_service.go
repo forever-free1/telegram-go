@@ -344,13 +344,13 @@ type SyncRequest struct {
 // SyncResponse 增量同步响应
 type SyncResponse struct {
 	Messages   []*model.Message `json:"messages"`
-	ReadAcks   []*model.Message `json:"read_acks"`   // 已读确认的消息
-	SeqID      int64            `json:"seq_id"`      // 当前最新SeqID
+	ReadAcks   []*model.Message `json:"read_acks"` // 已读确认的消息
+	SeqID      int64            `json:"seq_id"`     // 当前最新SeqID
+	HasMore    bool             `json:"has_more"`  // 告诉前端是否还有更多消息
 }
 
 // Sync 增量同步 - 获取lastSeqID之后的所有消息
 func (s *MessageService) Sync(ctx context.Context, userID int64, lastSeqID int64) (*SyncResponse, error) {
-	// 获取用户所在的所有聊天室ID
 	chatIDs, err := s.chatRepo.GetChatIDsByUserID(ctx, userID)
 	if err != nil {
 		s.logger.Error("failed to get user chat IDs", zap.Error(err))
@@ -362,18 +362,18 @@ func (s *MessageService) Sync(ctx context.Context, userID int64, lastSeqID int64
 			Messages: []*model.Message{},
 			ReadAcks: []*model.Message{},
 			SeqID:    lastSeqID,
+			HasMore:  false,
 		}, nil
 	}
 
-	// 查询SeqID大于lastSeqID的所有消息，限制最多返回500条防止OOM
-	const maxSyncLimit = 500
-	messages, err := s.messageRepo.FindBySeqIDsGreaterThan(ctx, chatIDs, lastSeqID, maxSyncLimit)
+	// 强制限制一次最多拉取 500 条
+	limit := 500
+	messages, err := s.messageRepo.FindBySeqIDsGreaterThan(ctx, chatIDs, lastSeqID, limit)
 	if err != nil {
 		s.logger.Error("failed to sync messages", zap.Error(err))
 		return nil, err
 	}
 
-	// 获取当前最新的SeqID
 	currentSeqID := lastSeqID
 	for _, msg := range messages {
 		if msg.SeqID > currentSeqID {
@@ -381,13 +381,13 @@ func (s *MessageService) Sync(ctx context.Context, userID int64, lastSeqID int64
 		}
 	}
 
-	// TODO: 如果需要同步已读状态，可以查询用户未读的消息
-	// 这里简化处理，先只返回新消息
-	readAcks := []*model.Message{}
+	// 如果拉回来的消息数量等于 limit，说明数据库里很可能还有没拉完的数据
+	hasMore := len(messages) == limit
 
 	return &SyncResponse{
 		Messages: messages,
-		ReadAcks: readAcks,
+		ReadAcks: []*model.Message{}, // 暂不实现已读同步
 		SeqID:    currentSeqID,
+		HasMore:  hasMore,
 	}, nil
 }
