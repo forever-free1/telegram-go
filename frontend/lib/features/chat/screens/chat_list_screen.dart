@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
 
-import '../../../core/database/database_service.dart';
-import '../../../core/database/models/chat_session_model.dart';
+import '../../../core/database/database.dart';
 import '../../../core/sync/sync_controller.dart';
 import '../widgets/chat_tile.dart';
 import 'chat_page_screen.dart';
 
-/// Chat list screen - loads real data from local database
+/// Chat list screen - loads real data from Drift database
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
@@ -17,13 +16,13 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  late final DatabaseService _db;
+  late final AppDatabase _db;
   late final SyncController _syncController;
 
   @override
   void initState() {
     super.initState();
-    _db = DatabaseService.to;
+    _db = Get.find<AppDatabase>();
     _syncController = Get.find<SyncController>();
 
     // Trigger initial sync when page loads
@@ -70,9 +69,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
             ],
           ),
-          // Chat list from local database (SharedPreferences)
-          StreamBuilder<List<ChatSessionModel>>(
-            stream: _db.watchChatSessions(),
+          // Chat list from Drift database
+          StreamBuilder<List<ChatSession>>(
+            stream: _db.watchAllChats(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
@@ -126,10 +125,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     (context, index) {
                       final chat = chats[index];
                       return ChatTile(
-                        avatarText: chat.avatarText ?? _getInitials(chat.name),
+                        avatarText: chat.avatarUrl ?? _getInitials(chat.name),
                         title: chat.name,
                         subtitle: chat.lastMessage ?? 'No messages yet',
-                        time: _formatTime(chat.lastMessageTime),
+                        time: _formatTime(chat.updatedAt),
                         unreadCount: chat.unreadCount > 0 ? chat.unreadCount : null,
                         onTap: () {
                           Navigator.of(context).push(
@@ -137,7 +136,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               builder: (context) => ChatPageScreen(
                                 chatId: chat.chatId,
                                 chatName: chat.name,
-                                avatarText: chat.avatarText ?? _getInitials(chat.name),
+                                avatarText: chat.avatarUrl ?? _getInitials(chat.name),
                               ),
                             ),
                           );
@@ -183,9 +182,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   /// Format time for display
-  String _formatTime(DateTime? time) {
-    if (time == null) return '';
-
+  String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
 

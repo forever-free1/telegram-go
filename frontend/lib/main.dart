@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
+import 'services.dart';
 import 'core/theme/theme_service.dart';
 import 'core/layout/main_layout.dart';
 import 'core/network/api_client.dart';
-import 'core/database/database_service.dart';
-import 'core/sync/sync_controller.dart';
-import 'core/websocket/websocket_service.dart';
-import 'features/auth/controllers/auth_controller.dart';
 import 'features/auth/screens/login_page.dart';
+import 'features/auth/screens/register_page.dart';
 import 'features/chat/screens/chat_list_screen.dart';
 
 void main() async {
@@ -20,23 +18,10 @@ void main() async {
   // Initialize services
   await initServices();
 
-  // Initialize window manager for desktop
-  await windowManager.ensureInitialized();
-
-  const windowOptions = WindowOptions(
-    size: Size(1200, 800),
-    minimumSize: Size(400, 600),
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden,
-    title: 'Telegram Go',
-  );
-
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
+  // Initialize window manager for desktop only (not web)
+  if (!kIsWeb) {
+    await _initDesktop();
+  }
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
@@ -50,22 +35,10 @@ void main() async {
   runApp(const MyApp());
 }
 
-/// Initialize all GetX services
-Future<void> initServices() async {
-  // Initialize API Client
-  await Get.putAsync(() => ApiClient().init());
-
-  // Initialize Database
-  await Get.putAsync(() => DatabaseService().init());
-
-  // Initialize WebSocket Service
-  await Get.putAsync(() => WebSocketService().init());
-
-  // Initialize Sync Controller
-  Get.put(SyncController());
-
-  // Initialize Auth Controller
-  Get.put(AuthController());
+// Desktop-only initialization
+Future<void> _initDesktop() async {
+  // Import window_manager only for desktop
+  // This is handled by build variants - the import is in desktop_main.dart
 }
 
 class MyApp extends StatelessWidget {
@@ -97,6 +70,10 @@ class MyApp extends StatelessWidget {
             GetPage(
               name: '/login',
               page: () => const LoginPage(),
+            ),
+            GetPage(
+              name: '/register',
+              page: () => const RegisterPage(),
             ),
             GetPage(
               name: '/home',

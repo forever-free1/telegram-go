@@ -1,5 +1,7 @@
 # Telegram Go - Full-Stack Messaging Application
 
+[**中文版 README**](README_CN.md)
+
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go" alt="Go Version">
   <img src="="Flutter-3.41+-02569B?style=for-the-badge&logo=flutter" alt="Flutter Version">

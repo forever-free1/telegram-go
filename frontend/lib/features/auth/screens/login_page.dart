@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../controllers/auth_controller.dart';
+import 'register_page.dart';
 
 /// Login Page - Material 3 style
 class LoginPage extends StatefulWidget {
@@ -215,11 +216,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     TextButton(
                       onPressed: () {
-                        Get.snackbar(
-                          'Coming Soon',
-                          'Registration will be available soon',
-                          snackPosition: SnackPosition.BOTTOM,
-                        );
+                        Get.to(() => const RegisterPage());
                       },
                       child: const Text('Sign Up'),
                     ),

@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:get/get.dart';
+import 'package:drift/drift.dart';
+import 'package:get/get.dart' hide Value;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../database/database_service.dart';
-import '../database/models/message_model.dart';
+import '../database/database.dart';
 import '../network/api_client.dart';
 
 /// WebSocket event types
@@ -98,22 +98,25 @@ class WebSocketService extends GetxService {
   void _onMessage(dynamic message) {
     try {
       final jsonData = json.decode(message as String) as Map<String, dynamic>;
-      final event = WSEvent.fromJson(jsonData);
 
-      // Handle different event types
-      switch (event.type) {
+      // Handle different event types directly (backend sends flat JSON)
+      final type = jsonData['type'] as String? ?? '';
+
+      switch (type) {
         case 'new_message':
         case 'message':
-          _handleNewMessage(event.data);
+          _handleNewMessage(jsonData);
           break;
+        case 'WS_MSG_READ':
         case 'message_ack':
-          _handleMessageAck(event.data);
+          _handleMessageAck(jsonData);
           break;
         case 'pong':
           // Server acknowledged ping
           break;
         default:
           // Broadcast to other listeners
+          final event = WSEvent.fromJson(jsonData);
           _eventController.add(event);
       }
     } catch (e) {
@@ -124,15 +127,53 @@ class WebSocketService extends GetxService {
   /// Handle new message from server
   void _handleNewMessage(Map<String, dynamic> data) async {
     try {
-      final message = MessageModel.fromServerJson(data);
-      await DatabaseService.to.saveMessage(message);
+      final db = Get.find<AppDatabase>();
+
+      // Parse timestamp - backend sends 'timestamp', sync might send 'created_at'
+      DateTime? createdAt;
+      if (data['timestamp'] != null) {
+        createdAt = DateTime.tryParse(data['timestamp'] as String);
+      } else if (data['created_at'] != null) {
+        createdAt = DateTime.tryParse(data['created_at'] as String);
+      }
+      createdAt ??= DateTime.now();
+
+      // Parse message from server
+      final message = MessagesCompanion(
+        seqId: Value(data['seq_id'] as int? ?? data['seqId'] as int? ?? 0),
+        chatId: Value(data['chat_id'] as int),
+        senderId: Value(data['sender_id'] as int),
+        type: Value(data['type'] as int? ?? 1),
+        content: Value(data['content'] as String?),
+        status: const Value('sent'),
+        createdAt: Value(createdAt),
+      );
+
+      // Save message to Drift
+      await db.insertMessage(message);
 
       // Update chat session
-      await DatabaseService.to.updateChatSessionLastMessage(
-        message.chatId,
-        message.content ?? '[Media]',
-        message.createdAt,
-      );
+      final sessions = await (db.select(db.chatSessions)
+            ..where((t) => t.chatId.equals(data['chat_id'] as int)))
+          .get();
+
+      if (sessions.isNotEmpty) {
+        await (db.update(db.chatSessions)
+              ..where((t) => t.chatId.equals(data['chat_id'] as int)))
+            .write(ChatSessionsCompanion(
+          lastMessage: Value(data['content'] as String? ?? '[Media]'),
+          updatedAt: Value(message.createdAt.value),
+        ));
+      } else {
+        // Create new chat session
+        await db.insertOrUpdateChat(ChatSessionsCompanion(
+          chatId: Value(data['chat_id'] as int),
+          name: Value('Chat ${data['chat_id']}'),
+          lastMessage: Value(data['content'] as String? ?? '[Media]'),
+          unreadCount: const Value(1),
+          updatedAt: Value(DateTime.now()),
+        ));
+      }
     } catch (e) {
       // Handle error silently
     }
@@ -145,12 +186,29 @@ class WebSocketService extends GetxService {
       final status = data['status'] as String? ?? 'sent';
 
       if (localId != null) {
-        final serverSeqId = data['seq_id'] as int?;
-        await DatabaseService.to.updateMessageStatus(
-          localId,
-          status == 'sent' ? MessageStatus.sent : MessageStatus.failed,
-          serverSeqId: serverSeqId,
-        );
+        final db = Get.find<AppDatabase>();
+        // Find message by content and status (we used content as identifier for local messages)
+        final content = data['content'] as String?;
+        final chatId = data['chat_id'] as int?;
+
+        if (content != null && chatId != null) {
+          final messages = await db.getMessagesByChatId(chatId);
+          final targetMsg = messages.where((m) =>
+            m.content == content && m.status == 'sending'
+          ).toList();
+
+          if (targetMsg.isNotEmpty) {
+            final serverSeqId = data['seq_id'] as int?;
+            final newStatus = status == 'sent' ? 'sent' : 'failed';
+
+            await db.updateMessageStatus(targetMsg.first.id, newStatus);
+
+            if (serverSeqId != null && serverSeqId > 0) {
+              await (db.update(db.messages)..where((t) => t.id.equals(targetMsg.first.id)))
+                  .write(MessagesCompanion(seqId: Value(serverSeqId)));
+            }
+          }
+        }
       }
     } catch (e) {
       // Handle error silently

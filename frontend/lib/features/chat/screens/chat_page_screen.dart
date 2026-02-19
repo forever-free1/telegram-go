@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Value;
 import 'package:dio/dio.dart';
 
-import '../../../core/database/database_service.dart';
+import '../../../core/database/database.dart';
 import '../../../core/database/models/message_model.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/websocket/websocket_service.dart';
@@ -12,7 +13,7 @@ import '../../auth/controllers/auth_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input_bar.dart';
 
-/// Chat page screen - real-time messaging
+/// Chat page screen - real-time messaging with Drift
 class ChatPageScreen extends StatefulWidget {
   final int chatId;
   final String chatName;
@@ -31,18 +32,16 @@ class ChatPageScreen extends StatefulWidget {
 
 class _ChatPageScreenState extends State<ChatPageScreen> {
   final ScrollController _scrollController = ScrollController();
-  final DatabaseService _db = DatabaseService.to;
+  final AppDatabase _db = Get.find<AppDatabase>();
   final ApiClient _api = ApiClient.to;
   final AuthController _auth = Get.find<AuthController>();
 
   StreamSubscription? _messagesSubscription;
-  List<MessageModel> _messages = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
     _listenMessages();
     _connectWebSocket();
   }
@@ -54,22 +53,11 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     super.dispose();
   }
 
-  Future<void> _loadMessages() async {
-    final messages = await _db.getMessagesByChatId(widget.chatId);
-    setState(() {
-      _messages = messages;
-      _isLoading = false;
-    });
-    if (messages.isNotEmpty) {
-      _scrollToBottom();
-    }
-  }
-
   void _listenMessages() {
-    _messagesSubscription = _db.watchMessagesByChatId(widget.chatId).listen((messages) {
+    _messagesSubscription = _db.watchMessages(widget.chatId).listen((messages) {
       if (mounted) {
         setState(() {
-          _messages = messages;
+          _isLoading = false;
         });
         // Auto scroll to bottom when new messages arrive
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -99,25 +87,22 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
   Future<void> _handleSend(String text) async {
     if (text.trim().isEmpty) return;
 
-    // Generate local ID for tracking
-    final localId = '${DateTime.now().millisecondsSinceEpoch}_${widget.chatId}';
     final currentUserId = _auth.currentUser.value?.userId ?? 0;
+    final now = DateTime.now();
 
-    // 1. Create local message with "sending" status
-    final localMessage = MessageModel.createLocal(
-      localId: localId,
-      chatId: widget.chatId,
-      senderId: currentUserId,
-      content: text,
-    );
+    // 1. Insert message with "sending" status into Drift (optimistic UI)
+    await _db.insertMessage(MessagesCompanion(
+      seqId: const Value(0), // Will be updated after server response
+      chatId: Value(widget.chatId),
+      senderId: Value(currentUserId),
+      type: const Value(1), // text
+      content: Value(text),
+      status: const Value('sending'),
+      createdAt: Value(now),
+    ));
 
-    // Save to local DB immediately (optimistic UI)
-    await _db.saveMessage(localMessage);
-    await _db.updateChatSessionLastMessage(
-      widget.chatId,
-      text,
-      localMessage.createdAt,
-    );
+    // Update chat session's last message
+    await _updateChatSessionLastMessage(text, now);
 
     try {
       // 2. Call API to send message
@@ -139,18 +124,57 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
           data = responseData;
         }
 
-        // 3. Update local message status to "sent"
-        final serverMessage = MessageModel.fromServerJson(data);
-        await _db.updateMessageStatus(localId, MessageStatus.sent, serverSeqId: serverMessage.seqId);
+        // 3. Update message status to "sent" and update seqId
+        // Find the message we just inserted (by content and createdAt)
+        final messages = await _db.getMessagesByChatId(widget.chatId);
+        final localMessage = messages.firstWhere(
+          (m) => m.content == text && m.status == 'sending',
+          orElse: () => messages.first,
+        );
+
+        final serverSeqId = data['seq_id'] as int? ?? 0;
+        await _db.updateMessageStatus(localMessage.id, 'sent');
+
+        // Update seqId if provided
+        if (serverSeqId > 0) {
+          await (_db.update(_db.messages)..where((t) => t.id.equals(localMessage.id)))
+              .write(MessagesCompanion(seqId: Value(serverSeqId)));
+        }
       } else {
         // API returned success but unexpected format
-        await _db.updateMessageStatus(localId, MessageStatus.sent);
+        await _db.updateMessageStatusByContent(widget.chatId, text, 'sending', 'sent');
       }
     } on DioException {
       // 4. Mark as failed on error
-      await _db.updateMessageStatus(localId, MessageStatus.failed);
+      await _db.updateMessageStatusByContent(widget.chatId, text, 'sending', 'failed');
     } catch (_) {
-      await _db.updateMessageStatus(localId, MessageStatus.failed);
+      await _db.updateMessageStatusByContent(widget.chatId, text, 'sending', 'failed');
+    }
+  }
+
+  Future<void> _updateChatSessionLastMessage(String message, DateTime time) async {
+    // Check if chat session exists
+    final sessions = await (_db.select(_db.chatSessions)
+          ..where((t) => t.chatId.equals(widget.chatId)))
+        .get();
+
+    if (sessions.isNotEmpty) {
+      // Update existing session
+      await (_db.update(_db.chatSessions)
+            ..where((t) => t.chatId.equals(widget.chatId)))
+          .write(ChatSessionsCompanion(
+            lastMessage: Value(message),
+            updatedAt: Value(time),
+          ));
+    } else {
+      // Create new session
+      await _db.insertOrUpdateChat(ChatSessionsCompanion(
+        chatId: Value(widget.chatId),
+        name: Value(widget.chatName),
+        lastMessage: Value(message),
+        unreadCount: const Value(0),
+        updatedAt: Value(time),
+      ));
     }
   }
 
@@ -159,6 +183,21 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     final period = time.hour >= 12 ? 'PM' : 'AM';
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';
+  }
+
+  /// Convert Drift status string to MessageStatus enum
+  MessageStatus? _convertStatus(String? status) {
+    if (status == null) return null;
+    switch (status) {
+      case 'sending':
+        return MessageStatus.sending;
+      case 'sent':
+        return MessageStatus.sent;
+      case 'failed':
+        return MessageStatus.failed;
+      default:
+        return null;
+    }
   }
 
   @override
@@ -198,11 +237,10 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Online',
                     style: TextStyle(
                       fontSize: 12,
-                      color: colorScheme.primary,
                     ),
                   ),
                 ],
@@ -227,9 +265,16 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
               color: colorScheme.surface,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _messages.isEmpty
-                      ? _buildEmptyState()
-                      : _buildMessagesList(currentUserId),
+                  : StreamBuilder<List<Message>>(
+                      stream: _db.watchMessages(widget.chatId),
+                      builder: (context, snapshot) {
+                        final messages = snapshot.data ?? [];
+                        if (messages.isEmpty) {
+                          return _buildEmptyState();
+                        }
+                        return _buildMessagesList(messages, currentUserId);
+                      },
+                    ),
             ),
           ),
           // Input bar
@@ -284,7 +329,7 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     );
   }
 
-  Widget _buildMessagesList(int currentUserId) {
+  Widget _buildMessagesList(List<Message> messages, int currentUserId) {
     return Stack(
       children: [
         // Background pattern
@@ -302,9 +347,9 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.only(top: 8, bottom: 8),
-          itemCount: _messages.length,
+          itemCount: messages.length,
           itemBuilder: (context, index) {
-            final message = _messages[index];
+            final message = messages[index];
             final isMe = message.senderId == currentUserId;
 
             return MessageBubble(
@@ -312,7 +357,7 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
               isMe: isMe,
               isMarkdown: false,
               time: _formatTime(message.createdAt),
-              status: message.status,
+              status: _convertStatus(message.status),
             )
                 .animate()
                 .fadeIn(

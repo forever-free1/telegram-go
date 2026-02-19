@@ -1,10 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart' hide Response, FormData, MultipartFile;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 /// API Client - Dio wrapper with interceptors
 class ApiClient extends GetxService {
-  static const String _baseUrl = 'http://10.0.2.2:8080/api';
+  // Use localhost for web/desktop, 10.0.2.2 for Android emulator
+  static String get _baseUrl {
+    if (kIsWeb || kDebugMode) {
+      return 'http://localhost:8080/api';
+    }
+    return 'http://10.0.2.2:8080/api';
+  }
   static const String _tokenKey = 'auth_token';
 
   late final Dio _dio;

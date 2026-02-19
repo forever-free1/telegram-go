@@ -1,16 +1,15 @@
 import 'dart:async';
-import 'package:get/get.dart';
+import 'package:drift/drift.dart';
+import 'package:get/get.dart' hide Value;
 import 'package:dio/dio.dart';
 
-import '../database/database_service.dart';
-import '../database/models/message_model.dart';
-import '../database/models/chat_session_model.dart';
+import '../database/database.dart';
 import '../network/api_client.dart';
 import '../websocket/websocket_service.dart';
 
-/// Sync controller - Incremental sync engine
+/// Sync controller - Incremental sync engine using Drift
 class SyncController extends GetxController {
-  final DatabaseService _db = DatabaseService.to;
+  final AppDatabase _db = Get.find<AppDatabase>();
   final ApiClient _api = ApiClient.to;
 
   final RxBool isSyncing = false.obs;
@@ -59,7 +58,7 @@ class SyncController extends GetxController {
     errorMessage.value = '';
 
     try {
-      // 1. Get local max seqId
+      // 1. Get local max seqId from Drift
       final maxSeqId = await _db.getMaxSeqId();
 
       // 2. Call backend sync API
@@ -81,17 +80,10 @@ class SyncController extends GetxController {
         data = responseData;
       }
 
-      // 3. Parse and save messages
+      // 3. Parse and save messages using Drift transaction
       final messagesData = data['messages'] as List<dynamic>? ?? [];
       if (messagesData.isNotEmpty) {
-        final messages = messagesData
-            .map((json) => MessageModel.fromServerJson(json as Map<String, dynamic>))
-            .toList();
-
-        await _db.saveMessages(messages);
-
-        // 4. Update chat sessions
-        await _updateChatSessions(messages);
+        await _saveMessagesAndUpdateChats(messagesData);
       }
 
       lastSyncTime.value = DateTime.now();
@@ -108,41 +100,75 @@ class SyncController extends GetxController {
     }
   }
 
-  /// Update chat sessions with new messages
-  Future<void> _updateChatSessions(List<MessageModel> messages) async {
-    // Group messages by chatId
-    final Map<int, List<MessageModel>> messagesByChat = {};
-    for (final msg in messages) {
-      messagesByChat.putIfAbsent(msg.chatId, () => []).add(msg);
-    }
+  /// Save messages and update chat sessions in a Drift transaction
+  Future<void> _saveMessagesAndUpdateChats(List<dynamic> messagesData) async {
+    await _db.transaction(() async {
+      // Map to track chat sessions that need updating
+      final Map<int, _LatestMessageInfo> latestMessagesByChat = {};
 
-    // Update each chat session
-    for (final entry in messagesByChat.entries) {
-      final chatId = entry.key;
-      final chatMessages = entry.value;
+      // Insert all messages
+      for (final json in messagesData) {
+        final msgData = json as Map<String, dynamic>;
 
-      // Get latest message
-      final latestMsg = chatMessages.reduce(
-        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
-      );
+        // Handle timestamp - backend sends 'created_at' for sync
+        DateTime? createdAt;
+        if (msgData['created_at'] != null) {
+          createdAt = DateTime.tryParse(msgData['created_at'] as String);
+        }
+        createdAt ??= DateTime.now();
 
-      // Get or create chat session
-      var session = await _db.getChatSession(chatId);
-      session ??= ChatSessionModel(
-        chatId: chatId,
-        name: 'Chat $chatId',
-        unreadCount: 0,
-        updatedAt: DateTime.now(),
-      );
+        final message = MessagesCompanion(
+          seqId: Value(msgData['seq_id'] as int? ?? 0),
+          chatId: Value(msgData['chat_id'] as int),
+          senderId: Value(msgData['sender_id'] as int),
+          type: Value(msgData['type'] as int? ?? 1),
+          content: Value(msgData['content'] as String?),
+          status: const Value('sent'),
+          createdAt: Value(createdAt),
+        );
 
-      // Update last message
-      session.updateFromMessage(
-        latestMsg.content ?? '[Media]',
-        latestMsg.createdAt,
-      );
+        await _db.insertMessage(message);
 
-      await _db.saveChatSession(session);
-    }
+        // Track latest message per chat
+        final chatId = msgData['chat_id'] as int;
+        final content = message.content.value ?? '[Media]';
+
+        if (!latestMessagesByChat.containsKey(chatId) ||
+            latestMessagesByChat[chatId]!.createdAt.isBefore(createdAt)) {
+          latestMessagesByChat[chatId] = _LatestMessageInfo(content, createdAt);
+        }
+      }
+
+      // Update chat sessions
+      for (final entry in latestMessagesByChat.entries) {
+        final chatId = entry.key;
+        final info = entry.value;
+
+        // Check if chat session exists
+        final existingSession = await (_db.select(_db.chatSessions)
+              ..where((t) => t.chatId.equals(chatId)))
+            .getSingleOrNull();
+
+        if (existingSession != null) {
+          // Update existing session
+          await (_db.update(_db.chatSessions)
+                ..where((t) => t.chatId.equals(chatId)))
+              .write(ChatSessionsCompanion(
+                lastMessage: Value(info.content),
+                updatedAt: Value(info.createdAt),
+              ));
+        } else {
+          // Create new session (use chat ID as name placeholder)
+          await _db.insertOrUpdateChat(ChatSessionsCompanion(
+            chatId: Value(chatId),
+            name: Value('Chat $chatId'),
+            lastMessage: Value(info.content),
+            unreadCount: const Value(0),
+            updatedAt: Value(info.createdAt),
+          ));
+        }
+      }
+    });
   }
 
   /// Initial full sync (when user first logs in)
@@ -166,4 +192,12 @@ class SyncController extends GetxController {
       _startPeriodicSync();
     }
   }
+}
+
+/// Helper class to track latest message info per chat
+class _LatestMessageInfo {
+  final String content;
+  final DateTime createdAt;
+
+  _LatestMessageInfo(this.content, this.createdAt);
 }

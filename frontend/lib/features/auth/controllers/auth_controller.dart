@@ -40,6 +40,50 @@ class LoginResponse {
   }
 }
 
+/// User Profile Model
+class UserProfile {
+  final int id;
+  final String username;
+  final String? nickname;
+  final String? avatar;
+  final String? phone;
+  final String? email;
+  final String? bio;
+
+  UserProfile({
+    required this.id,
+    required this.username,
+    this.nickname,
+    this.avatar,
+    this.phone,
+    this.email,
+    this.bio,
+  });
+
+  String get displayName => nickname?.isNotEmpty == true ? nickname! : username;
+
+  String get avatarText {
+    if (displayName.isEmpty) return '?';
+    final parts = displayName.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return displayName[0].toUpperCase();
+  }
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      id: json['id'] ?? 0,
+      username: json['username'] ?? '',
+      nickname: json['nickname'],
+      avatar: json['avatar'],
+      phone: json['phone'],
+      email: json['email'],
+      bio: json['bio'],
+    );
+  }
+}
+
 /// Auth Controller - Handles authentication
 class AuthController extends GetxController {
   final ApiClient _apiClient = ApiClient.to;
@@ -47,6 +91,7 @@ class AuthController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
   final Rx<LoginResponse?> currentUser = Rx<LoginResponse?>(null);
+  final Rx<UserProfile?> userProfile = Rx<UserProfile?>(null);
 
   @override
   void onInit() {
@@ -110,6 +155,9 @@ class AuthController extends GetxController {
       // Update current user
       currentUser.value = loginResponse;
 
+      // Load user profile
+      await loadUserProfile();
+
       // Navigate to chat list
       Get.offAll(() => const ChatListScreen());
     } on DioException catch (e) {
@@ -166,8 +214,30 @@ class AuthController extends GetxController {
     } finally {
       await ApiClient.clearToken();
       currentUser.value = null;
+      userProfile.value = null;
       isLoading.value = false;
       Get.offAllNamed('/login');
+    }
+  }
+
+  /// Load user profile from API
+  Future<void> loadUserProfile() async {
+    try {
+      final response = await _apiClient.get('/user/me');
+      final responseData = response.data;
+
+      Map<String, dynamic> data;
+      if (responseData is Map<String, dynamic> && responseData.containsKey('data')) {
+        data = responseData['data'];
+      } else if (responseData is Map<String, dynamic>) {
+        data = responseData;
+      } else {
+        return;
+      }
+
+      userProfile.value = UserProfile.fromJson(data);
+    } catch (e) {
+      // Silently fail - profile is optional
     }
   }
 

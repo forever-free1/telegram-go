@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import '../../features/auth/controllers/auth_controller.dart';
 import '../../features/chat/screens/chat_list_screen.dart';
+import '../../features/contacts/screens/contacts_screen.dart';
 
 /// Responsive navigation layout - NavigationBar for mobile, NavigationRail for desktop
 class MainLayout extends StatefulWidget {
@@ -33,7 +36,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   final List<Widget> _screens = const [
     _ChatsScreen(),
-    _ContactsScreen(),
+    ContactsScreen(),
     _SettingsScreen(),
   ];
 
@@ -156,122 +159,122 @@ class _ChatsScreen extends StatelessWidget {
   }
 }
 
-class _ContactsScreen extends StatelessWidget {
-  const _ContactsScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Contacts'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.contacts_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No contacts',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add contacts to start chatting',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SettingsScreen extends StatelessWidget {
   const _SettingsScreen();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final authController = Get.find<AuthController>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: ListView(
-        children: [
-          const SizedBox(height: 16),
-          // Profile Section
-          Center(
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: colorScheme.onPrimaryContainer,
+      body: Obx(() {
+        final profile = authController.userProfile.value;
+
+        return ListView(
+          children: [
+            const SizedBox(height: 16),
+            // Profile Section
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Text(
+                      profile?.avatarText ?? '?',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'User Name',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  '+1 234 567 8900',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    profile?.displayName ?? 'Loading...',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (profile?.phone != null)
+                    Text(
+                      profile!.phone!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  if (profile?.email != null)
+                    Text(
+                      profile!.email!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          // Settings Items
-          _SettingsItem(
-            icon: Icons.person_outline,
-            title: 'Edit Profile',
-            onTap: () {},
-          ),
-          _SettingsItem(
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            onTap: () {},
-          ),
-          _SettingsItem(
-            icon: Icons.security_outlined,
-            title: 'Privacy & Security',
-            onTap: () {},
-          ),
-          _SettingsItem(
-            icon: Icons.palette_outlined,
-            title: 'Appearance',
-            onTap: () {},
-          ),
-          _SettingsItem(
-            icon: Icons.help_outline,
-            title: 'Help',
-            onTap: () {},
-          ),
-          const Divider(),
-          _SettingsItem(
-            icon: Icons.logout,
-            title: 'Log Out',
-            color: colorScheme.error,
-            onTap: () {},
-          ),
-        ],
-      ),
+            const SizedBox(height: 24),
+            // Settings Items
+            _SettingsItem(
+              icon: Icons.person_outline,
+              title: 'Edit Profile',
+              onTap: () {},
+            ),
+            _SettingsItem(
+              icon: Icons.notifications_outlined,
+              title: 'Notifications',
+              onTap: () {},
+            ),
+            _SettingsItem(
+              icon: Icons.security_outlined,
+              title: 'Privacy & Security',
+              onTap: () {},
+            ),
+            _SettingsItem(
+              icon: Icons.palette_outlined,
+              title: 'Appearance',
+              onTap: () {},
+            ),
+            _SettingsItem(
+              icon: Icons.help_outline,
+              title: 'Help',
+              onTap: () {},
+            ),
+            const Divider(),
+            _SettingsItem(
+              icon: Icons.logout,
+              title: 'Log Out',
+              color: colorScheme.error,
+              onTap: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Log Out'),
+                    content: const Text('Are you sure you want to log out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colorScheme.error,
+                        ),
+                        child: const Text('Log Out'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirmed == true) {
+                  authController.logout();
+                }
+              },
+            ),
+          ],
+        );
+      }),
     );
   }
 }
