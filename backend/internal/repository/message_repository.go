@@ -49,11 +49,12 @@ func (r *MessageRepository) Update(ctx context.Context, message *model.Message) 
 }
 
 // FindBySeqIDsGreaterThan 查询SeqID大于指定值且属于指定聊天室的消息
-func (r *MessageRepository) FindBySeqIDsGreaterThan(ctx context.Context, chatIDs []int64, lastSeqID int64) ([]*model.Message, error) {
+func (r *MessageRepository) FindBySeqIDsGreaterThan(ctx context.Context, chatIDs []int64, lastSeqID int64, limit int) ([]*model.Message, error) {
 	var messages []*model.Message
 	err := r.db.WithContext(ctx).
 		Where("chat_id IN ? AND seq_id > ? AND is_deleted = ?", chatIDs, lastSeqID, false).
 		Order("seq_id ASC").
+		Limit(limit).
 		Find(&messages).Error
 	return messages, err
 }

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -245,7 +245,11 @@ func (h *MessageHandler) Sync(c *gin.Context) {
 	}
 
 	var lastSeqID int64
-	fmt.Sscanf(lastSeqIDStr, "%d", &lastSeqID)
+	lastSeqID, err := strconv.ParseInt(lastSeqIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error(400, "invalid last_seq_id format"))
+		return
+	}
 
 	user, exists := c.Get("user")
 	if !exists {

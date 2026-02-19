@@ -365,8 +365,9 @@ func (s *MessageService) Sync(ctx context.Context, userID int64, lastSeqID int64
 		}, nil
 	}
 
-	// 查询SeqID大于lastSeqID的所有消息
-	messages, err := s.messageRepo.FindBySeqIDsGreaterThan(ctx, chatIDs, lastSeqID)
+	// 查询SeqID大于lastSeqID的所有消息，限制最多返回500条防止OOM
+	const maxSyncLimit = 500
+	messages, err := s.messageRepo.FindBySeqIDsGreaterThan(ctx, chatIDs, lastSeqID, maxSyncLimit)
 	if err != nil {
 		s.logger.Error("failed to sync messages", zap.Error(err))
 		return nil, err
